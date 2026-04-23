@@ -1,0 +1,41 @@
+# ── Environment & secrets ─────────────────────────────────
+.env
+*.env
+
+# ── Database (server-side only, not in git) ───────────────
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Python ────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+.Python
+venv/
+.venv/
+env/
+pip-wheel-metadata/
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ── OS ────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Editor ────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Logs ──────────────────────────────────────────────────
+*.log
+logs/

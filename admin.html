@@ -1,0 +1,365 @@
+<html>
+<head>
+  <title>Admin Panel — AI Timetable Planner</title>
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --navy-950:#05090f; --navy-900:#0a1220; --navy-800:#0f1e35;
+      --gold-400:#f0c060; --gold-300:#f5d080; --gold-500:#c8962a;
+      --slate-400:#8fa3be; --slate-300:#b5c7d8; --white:#f0f4f8;
+      --red-400:#e05c5c; --green-400:#4ec994; --blue-400:#5ba3d9;
+      --font-display:'Playfair Display',Georgia,serif;
+      --font-body:'IBM Plex Sans',sans-serif;
+      --font-mono:'IBM Plex Mono',monospace;
+      --radius:12px; --radius-sm:6px; --t:0.22s cubic-bezier(.4,0,.2,1);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:var(--font-body);background:var(--navy-950);color:var(--white);min-height:100vh;}
+    body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+      background:radial-gradient(ellipse 70% 55% at 5% 5%,rgba(35,66,120,0.3) 0%,transparent 60%),
+      radial-gradient(ellipse 50% 40% at 95% 90%,rgba(200,150,42,0.06) 0%,transparent 55%);}
+    .page{position:relative;z-index:1;max-width:800px;margin:0 auto;padding:0 32px 100px;}
+
+    .topnav{display:flex;align-items:center;justify-content:space-between;padding:28px 0 0;margin-bottom:44px;flex-wrap:wrap;gap:12px;}
+    .back-link{display:inline-flex;align-items:center;gap:8px;color:var(--slate-400);text-decoration:none;font-size:13px;font-weight:500;transition:color var(--t);}
+    .back-link:hover{color:var(--gold-300);}
+    .back-link svg{width:16px;height:16px;}
+    .topnav-brand{font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-400);}
+
+    .page-header{margin-bottom:40px;padding-bottom:28px;border-bottom:1px solid rgba(240,192,96,0.1);}
+    .page-eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-400);margin-bottom:10px;}
+    .page-title{font-family:var(--font-display);font-size:clamp(26px,3.5vw,40px);font-weight:700;color:var(--white);}
+    .page-title span{color:var(--gold-400);}
+    .page-subtitle{margin-top:8px;font-size:14px;font-weight:300;color:var(--slate-400);}
+
+    .section{margin-bottom:36px;}
+    .section-label{display:flex;align-items:center;gap:12px;margin-bottom:20px;}
+    .section-label-text{font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--slate-400);white-space:nowrap;}
+    .section-line{flex:1;height:1px;background:rgba(240,192,96,0.1);}
+
+    /* Account cards */
+    .account-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+    .account-card{background:var(--navy-900);border:1px solid rgba(240,192,96,0.12);
+                  border-radius:var(--radius);overflow:hidden;
+                  box-shadow:0 1px 0 rgba(255,255,255,0.04) inset;}
+    .account-card-head-bar{height:3px;background:linear-gradient(90deg,var(--gold-500),var(--gold-400));}
+    .account-card-teacher-bar{height:3px;background:linear-gradient(90deg,#3ac4b8,#4ec994);}
+    .account-card-body{padding:22px 24px;}
+
+    .ac-role{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;
+             letter-spacing:.16em;margin-bottom:8px;}
+    .ac-role-head{color:var(--gold-400);}
+    .ac-role-teacher{color:var(--green-400);}
+    .ac-name{font-family:var(--font-display);font-size:24px;font-weight:700;
+             color:var(--white);margin-bottom:4px;}
+    .ac-perms{font-size:12px;color:var(--slate-400);line-height:1.6;margin-bottom:20px;}
+    .ac-perms span{display:block;}
+    .ac-perms .perm-yes{color:var(--green-400);}
+    .ac-perms .perm-no {color:rgba(255,255,255,0.2);text-decoration:line-through;}
+
+    /* Password form inside card */
+    .pwd-section{border-top:1px solid rgba(240,192,96,0.08);padding-top:18px;}
+    .pwd-section-label{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;
+                       letter-spacing:.14em;color:var(--slate-400);margin-bottom:12px;}
+    .pwd-row{display:flex;gap:8px;margin-bottom:8px;}
+    .pwd-input{flex:1;padding:9px 12px;background:var(--navy-800);
+               border:1px solid rgba(240,192,96,0.1);border-radius:var(--radius-sm);
+               color:var(--white);font-family:var(--font-body);font-size:13px;outline:none;
+               transition:border-color var(--t);}
+    .pwd-input::placeholder{color:var(--slate-400);opacity:.6;}
+    .pwd-input:focus{border-color:rgba(240,192,96,0.4);box-shadow:0 0 0 2px rgba(240,192,96,0.07);}
+    .btn-set-pwd{padding:9px 16px;border:none;border-radius:var(--radius-sm);
+                 font-family:var(--font-body);font-size:12px;font-weight:600;
+                 cursor:pointer;transition:all var(--t);white-space:nowrap;}
+    .btn-set-pwd-head{background:var(--gold-400);color:var(--navy-950);}
+    .btn-set-pwd-head:hover{background:var(--gold-300);}
+    .btn-set-pwd-teacher{background:rgba(78,201,148,0.85);color:var(--navy-950);}
+    .btn-set-pwd-teacher:hover{background:#6edba6;}
+    .btn-set-pwd:disabled{opacity:.5;cursor:not-allowed;}
+    .pwd-feedback{font-size:11px;height:16px;margin-top:2px;transition:color .2s;}
+    .pwd-ok {color:var(--green-400);}
+    .pwd-err{color:var(--red-400);}
+
+    /* Own password change */
+    .own-pwd-panel{background:var(--navy-900);border:1px solid rgba(240,192,96,0.12);
+                   border-radius:var(--radius);padding:24px 28px;
+                   box-shadow:0 1px 0 rgba(255,255,255,0.04) inset;}
+    .own-pwd-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px;}
+    .own-pwd-field{display:flex;flex-direction:column;gap:6px;}
+    .own-pwd-label{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.1em;color:var(--slate-400);}
+    .own-pwd-input{padding:10px 13px;background:var(--navy-800);border:1px solid rgba(240,192,96,0.12);
+                   border-radius:var(--radius-sm);color:var(--white);font-family:var(--font-body);
+                   font-size:13px;outline:none;transition:border-color var(--t);}
+    .own-pwd-input:focus{border-color:rgba(240,192,96,0.4);box-shadow:0 0 0 2px rgba(240,192,96,0.07);}
+    .btn-own-pwd{padding:10px 24px;background:var(--gold-400);color:var(--navy-950);border:none;
+                 border-radius:var(--radius-sm);font-family:var(--font-body);font-weight:700;
+                 font-size:13px;cursor:pointer;transition:all var(--t);}
+    .btn-own-pwd:hover{background:var(--gold-300);transform:translateY(-1px);}
+    .btn-own-pwd:disabled{opacity:.5;cursor:not-allowed;}
+    .own-pwd-msg{font-size:13px;padding:8px 14px;border-radius:var(--radius-sm);
+                 display:none;margin-top:8px;}
+    .own-pwd-msg.ok {background:rgba(78,201,148,0.08);border:1px solid rgba(78,201,148,0.22);color:var(--green-400);display:block;}
+    .own-pwd-msg.err{background:rgba(224,92,92,0.08);border:1px solid rgba(224,92,92,0.22);color:var(--red-400);display:block;}
+
+    .toast-c{position:fixed;bottom:28px;right:28px;z-index:9999;display:flex;flex-direction:column;gap:8px;}
+    .toast{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--navy-800);border-radius:var(--radius-sm);font-size:13px;box-shadow:0 12px 36px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.09);animation:toastIn .3s ease;}
+    .toast.s{border-left:3px solid var(--green-400);}
+    .toast.e{border-left:3px solid var(--red-400);}
+    @keyframes toastIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:translateX(0)}}
+
+    @media(max-width:600px){
+      .page{padding:0 16px 80px;}
+      .account-grid{grid-template-columns:1fr;}
+      .own-pwd-grid{grid-template-columns:1fr;}
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <nav class="topnav">
+    <a href="index.html" class="back-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+      All Timetables
+    </a>
+    <span class="topnav-brand">✦ AI Timetable Planner</span>
+  </nav>
+
+  <div class="page-header">
+    <div class="page-eyebrow">⚙ Head Administrator</div>
+    <h1 class="page-title">Admin <span>Panel</span></h1>
+    <p class="page-subtitle">Manage passwords for both accounts.</p>
+  </div>
+
+  <!-- 01: Account overview + password reset -->
+  <div class="section">
+    <div class="section-label">
+      <span class="section-label-text">01 — Accounts</span>
+      <div class="section-line"></div>
+    </div>
+
+    <div class="account-grid">
+
+      <!-- Head card -->
+      <div class="account-card">
+        <div class="account-card-head-bar"></div>
+        <div class="account-card-body">
+          <div class="ac-role ac-role-head">✦ Full Access</div>
+          <div class="ac-name">Head</div>
+          <div class="ac-perms">
+            <span class="perm-yes">✓ Create timetables</span>
+            <span class="perm-yes">✓ Edit &amp; delete timetables</span>
+            <span class="perm-yes">✓ Regenerate schedules</span>
+            <span class="perm-yes">✓ Duplicate timetables</span>
+            <span class="perm-yes">✓ View audit log</span>
+            <span class="perm-yes">✓ Manage passwords</span>
+          </div>
+          <div class="pwd-section">
+            <div class="pwd-section-label">Reset Head Password</div>
+            <div class="pwd-row">
+              <input type="password" class="pwd-input" id="headPwd1" placeholder="New password" />
+              <input type="password" class="pwd-input" id="headPwd2" placeholder="Confirm" />
+            </div>
+            <button class="btn-set-pwd btn-set-pwd-head" id="headPwdBtn"
+                    onclick="resetAccountPassword('head')">
+              Set Password
+            </button>
+            <div class="pwd-feedback" id="headPwdFb"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Teacher card -->
+      <div class="account-card">
+        <div class="account-card-teacher-bar"></div>
+        <div class="account-card-body">
+          <div class="ac-role ac-role-teacher">✎ Limited Access</div>
+          <div class="ac-name">Teacher</div>
+          <div class="ac-perms">
+            <span class="perm-yes">✓ Create timetables</span>
+            <span class="perm-no">Edit timetables</span>
+            <span class="perm-no">Delete timetables</span>
+            <span class="perm-no">Regenerate schedules</span>
+            <span class="perm-no">Duplicate timetables</span>
+            <span class="perm-no">View audit log</span>
+          </div>
+          <div class="pwd-section">
+            <div class="pwd-section-label">Reset Teacher Password</div>
+            <div class="pwd-row">
+              <input type="password" class="pwd-input" id="teacherPwd1" placeholder="New password" />
+              <input type="password" class="pwd-input" id="teacherPwd2" placeholder="Confirm" />
+            </div>
+            <button class="btn-set-pwd btn-set-pwd-teacher" id="teacherPwdBtn"
+                    onclick="resetAccountPassword('teacher')">
+              Set Password
+            </button>
+            <div class="pwd-feedback" id="teacherPwdFb"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 02: Change own password (requires current password) -->
+  <div class="section">
+    <div class="section-label">
+      <span class="section-label-text">02 — Change Your Own Password</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="own-pwd-panel">
+      <div class="own-pwd-grid">
+        <div class="own-pwd-field">
+          <label class="own-pwd-label">Current Password</label>
+          <input type="password" class="own-pwd-input" id="curPwd" placeholder="Current password" />
+        </div>
+        <div class="own-pwd-field">
+          <label class="own-pwd-label">New Password</label>
+          <input type="password" class="own-pwd-input" id="newPwd" placeholder="Min 6 characters" />
+        </div>
+        <div class="own-pwd-field">
+          <label class="own-pwd-label">Confirm New</label>
+          <input type="password" class="own-pwd-input" id="confPwd" placeholder="Repeat new password" />
+        </div>
+      </div>
+      <button class="btn-own-pwd" id="ownPwdBtn" onclick="changeOwnPassword()">Update My Password</button>
+      <div class="own-pwd-msg" id="ownPwdMsg"></div>
+    </div>
+  </div>
+
+</div>
+<div class="toast-c" id="toastC"></div>
+
+<script>
+const API = API_BASE;
+let users = [];
+
+document.addEventListener('DOMContentLoaded', async () => {
+  if (!requireHead()) return;
+  renderAuthBar('.topnav');
+  await loadUsers();
+});
+
+async function loadUsers() {
+  try {
+    const res  = await authFetch(`${API}/auth/users`);
+    const data = await res.json();
+    users = data.data || [];
+  } catch {
+    toast('Could not load user list.', 'e');
+  }
+}
+
+function getUserId(role) {
+  const u = users.find(u => u.role === role);
+  return u ? u.id : null;
+}
+
+async function resetAccountPassword(role) {
+  const prefix = role === 'head' ? 'head' : 'teacher';
+  const p1  = document.getElementById(`${prefix}Pwd1`).value;
+  const p2  = document.getElementById(`${prefix}Pwd2`).value;
+  const fb  = document.getElementById(`${prefix}PwdFb`);
+  const btn = document.getElementById(`${prefix}PwdBtn`);
+
+  fb.textContent = '';
+  fb.className   = 'pwd-feedback';
+
+  if (!p1) { fb.textContent = 'Enter a new password.'; fb.className = 'pwd-feedback pwd-err'; return; }
+  if (p1.length < 6) { fb.textContent = 'Minimum 6 characters.'; fb.className = 'pwd-feedback pwd-err'; return; }
+  if (p1 !== p2) { fb.textContent = 'Passwords do not match.'; fb.className = 'pwd-feedback pwd-err'; return; }
+
+  const uid = getUserId(role);
+  if (!uid) { fb.textContent = 'Account not found.'; fb.className = 'pwd-feedback pwd-err'; return; }
+
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  try {
+    const res  = await authFetch(`${API}/auth/users/${uid}/reset-password`, {
+      method: 'POST',
+      body:   JSON.stringify({ new_password: p1 }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      fb.textContent = '✓ Password updated.';
+      fb.className   = 'pwd-feedback pwd-ok';
+      document.getElementById(`${prefix}Pwd1`).value = '';
+      document.getElementById(`${prefix}Pwd2`).value = '';
+    } else {
+      fb.textContent = data.error || 'Failed.';
+      fb.className   = 'pwd-feedback pwd-err';
+    }
+  } catch {
+    fb.textContent = 'Server error.';
+    fb.className   = 'pwd-feedback pwd-err';
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Set Password';
+}
+
+async function changeOwnPassword() {
+  const cur  = document.getElementById('curPwd').value;
+  const nw   = document.getElementById('newPwd').value;
+  const conf = document.getElementById('confPwd').value;
+  const msg  = document.getElementById('ownPwdMsg');
+  const btn  = document.getElementById('ownPwdBtn');
+
+  msg.className = 'own-pwd-msg';
+
+  if (!cur || !nw || !conf) {
+    msg.textContent = 'All three fields are required.';
+    msg.className = 'own-pwd-msg err'; return;
+  }
+  if (nw.length < 6) {
+    msg.textContent = 'New password must be at least 6 characters.';
+    msg.className = 'own-pwd-msg err'; return;
+  }
+  if (nw !== conf) {
+    msg.textContent = 'New passwords do not match.';
+    msg.className = 'own-pwd-msg err'; return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Updating…';
+
+  try {
+    const res  = await authFetch(`${API}/auth/change-password`, {
+      method: 'POST',
+      body:   JSON.stringify({ current_password: cur, new_password: nw }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      msg.textContent = '✓ Password updated successfully.';
+      msg.className = 'own-pwd-msg ok';
+      ['curPwd','newPwd','confPwd'].forEach(id => document.getElementById(id).value = '');
+    } else {
+      msg.textContent = data.error || 'Password change failed.';
+      msg.className = 'own-pwd-msg err';
+    }
+  } catch {
+    msg.textContent = 'Server error. Try again.';
+    msg.className = 'own-pwd-msg err';
+  }
+
+  btn.disabled = false; btn.textContent = 'Update My Password';
+}
+
+function toast(msg, type='s') {
+  const c = document.getElementById('toastC');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+</script>
+
+<footer style="position:relative;z-index:1;text-align:center;padding:40px 32px 28px;border-top:1px solid rgba(240,192,96,0.07);margin-top:20px;">
+  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:rgba(143,163,190,0.35);">✦ AI Timetable Planner &nbsp;·&nbsp; Academic Scheduling System</span>
+</footer>
+</body>
+</html>

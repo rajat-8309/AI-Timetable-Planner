@@ -1,0 +1,234 @@
+<html>
+<head>
+  <title>Teacher Registration — AI Timetable Planner</title>
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --navy-950:#05090f; --navy-900:#0a1220; --navy-800:#0f1e35;
+      --gold-400:#f0c060; --gold-300:#f5d080;
+      --slate-400:#8fa3be; --slate-300:#b5c7d8; --white:#f0f4f8;
+      --red-400:#e05c5c; --green-400:#4ec994;
+      --font-display:'Playfair Display',Georgia,serif;
+      --font-body:'IBM Plex Sans',sans-serif;
+      --font-mono:'IBM Plex Mono',monospace;
+      --radius:12px; --radius-sm:6px; --t:0.22s cubic-bezier(.4,0,.2,1);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:var(--font-body);background:var(--navy-950);color:var(--white);
+         min-height:100vh;display:flex;flex-direction:column;align-items:center;
+         justify-content:center;padding:24px;animation:pageFadeIn .35s ease both;}
+    @keyframes pageFadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+    body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+      background:radial-gradient(ellipse 70% 55% at 10% 10%,rgba(35,66,120,0.35) 0%,transparent 60%),
+      radial-gradient(ellipse 50% 40% at 90% 85%,rgba(200,150,42,0.08) 0%,transparent 55%);}
+
+    .card{position:relative;z-index:1;width:100%;max-width:460px;
+          background:var(--navy-900);border:1px solid rgba(240,192,96,0.14);
+          border-radius:var(--radius);overflow:hidden;
+          box-shadow:0 32px 80px rgba(0,0,0,0.5),0 1px 0 rgba(255,255,255,0.05) inset;}
+    .card-accent{height:3px;background:linear-gradient(90deg,#4ec994,#3ac4b8);}
+    .card-body{padding:40px 36px 36px;}
+    .eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.2em;
+             text-transform:uppercase;color:var(--green-400);margin-bottom:8px;}
+    .card-title{font-family:var(--font-display);font-size:28px;font-weight:700;
+                color:var(--white);margin-bottom:6px;}
+    .card-subtitle{font-size:13px;color:var(--slate-400);margin-bottom:28px;line-height:1.6;}
+
+    .info-box{padding:12px 16px;background:rgba(91,163,217,0.06);
+              border:1px solid rgba(91,163,217,0.18);border-radius:var(--radius-sm);
+              font-size:13px;color:var(--slate-300);margin-bottom:24px;line-height:1.6;}
+    .info-box strong{color:#5ba3d9;}
+
+    .field{margin-bottom:18px;}
+    .field-label{font-size:11px;font-weight:500;text-transform:uppercase;
+                 letter-spacing:.1em;color:var(--slate-400);margin-bottom:6px;display:block;}
+    .field-input,.field-select{width:100%;padding:12px 14px;background:var(--navy-800);
+                 border:1px solid rgba(240,192,96,0.12);border-radius:var(--radius-sm);
+                 color:var(--white);font-family:var(--font-body);font-size:14px;
+                 outline:none;transition:border-color var(--t),box-shadow var(--t);}
+    .field-input::placeholder{color:var(--slate-400);opacity:.6;}
+    .field-input:focus,.field-select:focus{border-color:rgba(240,192,96,0.45);
+                                           box-shadow:0 0 0 3px rgba(240,192,96,0.08);}
+    .field-input.error,.field-select.error{border-color:rgba(224,92,92,0.5);}
+    .field-select{appearance:none;padding-right:36px;cursor:pointer;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238fa3be' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat:no-repeat;background-position:right 12px center;}
+    .field-select option{background:var(--navy-900);}
+    .field-hint{font-size:11px;color:var(--slate-400);margin-top:5px;}
+
+    .error-msg{display:none;padding:10px 14px;background:rgba(224,92,92,0.08);
+               border:1px solid rgba(224,92,92,0.25);border-radius:var(--radius-sm);
+               color:var(--red-400);font-size:13px;margin-bottom:14px;}
+    .error-msg.visible{display:block;}
+
+    .btn-register{width:100%;padding:13px;background:var(--green-400);color:var(--navy-950);
+                  border:none;border-radius:var(--radius-sm);font-family:var(--font-body);
+                  font-weight:700;font-size:15px;cursor:pointer;transition:all var(--t);
+                  display:flex;align-items:center;justify-content:center;gap:10px;margin-top:8px;}
+    .btn-register:hover:not(:disabled){background:#6edba6;transform:translateY(-1px);
+                                       box-shadow:0 8px 24px rgba(78,201,148,0.3);}
+    .btn-register:disabled{opacity:.5;cursor:not-allowed;}
+
+    .divider{display:flex;align-items:center;gap:12px;margin:24px 0;
+             font-size:12px;color:var(--slate-400);}
+    .divider::before,.divider::after{content:'';flex:1;height:1px;
+                                     background:rgba(240,192,96,0.1);}
+    .link-row{text-align:center;font-size:13px;color:var(--slate-400);}
+    .link-row a{color:var(--gold-400);text-decoration:none;font-weight:500;transition:color var(--t);}
+    .link-row a:hover{color:var(--gold-300);}
+
+    .spinner{width:16px;height:16px;border:2px solid rgba(5,9,15,0.3);
+             border-top-color:var(--navy-950);border-radius:50%;
+             animation:spin .7s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    .no-teachers{text-align:center;padding:20px;color:var(--slate-400);font-size:13px;}
+    .brand{font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;
+           text-transform:uppercase;color:rgba(143,163,190,0.3);
+           margin-top:28px;text-align:center;}
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="card-accent"></div>
+  <div class="card-body">
+    <div class="eyebrow">✎ Teacher Registration</div>
+    <h1 class="card-title">Create Account</h1>
+    <p class="card-subtitle">Select your name from the approved list and set a username &amp; password.</p>
+
+    <div class="info-box">
+      <strong>How it works:</strong> Your name must be pre-approved by the Head Administrator
+      before you can register. Once registered, you can create timetables.
+    </div>
+
+    <div class="error-msg" id="errorMsg"></div>
+
+    <div class="field">
+      <label class="field-label" for="teacherName">Your Name (pre-approved list)</label>
+      <select id="teacherName" class="field-select">
+        <option value="">— Loading approved names… —</option>
+      </select>
+      <div class="field-hint">Only names added by the Head appear here.</div>
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="username">Username</label>
+      <input type="text" id="username" class="field-input"
+             placeholder="e.g. drsharmacse" autocomplete="username" />
+      <div class="field-hint">Lowercase letters, numbers, underscores and dots only.</div>
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="password">Password</label>
+      <input type="password" id="password" class="field-input"
+             placeholder="At least 6 characters" autocomplete="new-password" />
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="confirmPassword">Confirm Password</label>
+      <input type="password" id="confirmPassword" class="field-input"
+             placeholder="Repeat your password" />
+    </div>
+
+    <button class="btn-register" id="registerBtn" onclick="doRegister()">
+      Create Account
+    </button>
+
+    <div class="divider">or</div>
+    <div class="link-row">Already have an account? <a href="login.html">Sign in →</a></div>
+  </div>
+</div>
+
+<div class="brand">✦ AI Timetable Planner · Academic Scheduling System</div>
+
+<script>
+const API = API_BASE;
+
+if (isLoggedIn()) window.location.href = 'index.html';
+
+document.addEventListener('DOMContentLoaded', loadTeachers);
+
+async function loadTeachers() {
+  const sel = document.getElementById('teacherName');
+  try {
+    const res  = await fetch(`${API}/auth/predefined-teachers`);
+    const data = await res.json();
+    const avail = (data.data || []).filter(t => !t.is_registered);
+
+    if (!avail.length) {
+      sel.innerHTML = '<option value="">— No approved names available yet —</option>';
+      sel.disabled  = true;
+      return;
+    }
+
+    sel.innerHTML = '<option value="">— Select your name —</option>' +
+      avail.map(t => `<option value="${escAttr(t.name)}">${escHtml(t.name)}</option>`).join('');
+  } catch {
+    sel.innerHTML = '<option value="">— Could not load list —</option>';
+    sel.disabled  = true;
+  }
+}
+
+async function doRegister() {
+  const btn          = document.getElementById('registerBtn');
+  const teacherName  = document.getElementById('teacherName').value.trim();
+  const username     = document.getElementById('username').value.trim().toLowerCase();
+  const password     = document.getElementById('password').value;
+  const confirmPwd   = document.getElementById('confirmPassword').value;
+
+  hideError();
+
+  if (!teacherName) { showError('Please select your name from the list.'); return; }
+  if (!username)    { showError('Please enter a username.'); return; }
+  if (username.length < 3) { showError('Username must be at least 3 characters.'); return; }
+  if (!/^[a-z0-9_.-]+$/.test(username)) {
+    showError('Username may only contain lowercase letters, numbers, _ . -'); return;
+  }
+  if (!password || password.length < 6) {
+    showError('Password must be at least 6 characters.'); return;
+  }
+  if (password !== confirmPwd) {
+    showError('Passwords do not match.'); return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Creating account…';
+
+  try {
+    const res  = await fetch(`${API}/auth/register`, {
+      method:  'POST',
+      headers: {'Content-Type': 'application/json'},
+      body:    JSON.stringify({ teacher_name: teacherName, username, password }),
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      saveSession(data.token, data.user);
+      window.location.href = 'index.html';
+    } else {
+      showError(data.error || 'Registration failed. Please try again.');
+    }
+  } catch {
+    showError('Cannot reach server. Make sure the backend is running.');
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = 'Create Account';
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorMsg');
+  el.textContent = msg;
+  el.classList.add('visible');
+}
+function hideError() { document.getElementById('errorMsg').classList.remove('visible'); }
+function escHtml(s)  { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escAttr(s)  { return escHtml(s).replace(/"/g,'&quot;'); }
+</script>
+</body>
+</html>

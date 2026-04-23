@@ -1,0 +1,39 @@
+# render.yaml — Deploy AI Timetable Planner to Render.com
+#
+# HOW TO USE:
+#   1. Push this repo to GitHub
+#   2. Go to https://render.com → New → Blueprint
+#   3. Connect your GitHub repo — Render reads this file automatically
+#   4. In the Render dashboard, under Environment, paste values for:
+#        DATABASE_URL  — from Supabase: Project Settings → Database → Connection String (URI mode)
+#        GROQ_API_KEY  — from https://console.groq.com → API Keys
+#        JWT_SECRET    — any long random string, e.g. run: python -c "import secrets; print(secrets.token_hex(32))"
+#   5. Click Deploy — done!
+#
+# NOTE: Flask also serves all the HTML/JS frontend files directly,
+#       so you only need this one Render service — no separate static host needed.
+
+services:
+  - type: web
+    name: ai-timetable-planner
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    plan: free
+
+    envVars:
+      - key: FLASK_ENV
+        value: production
+
+      # Paste these three in the Render dashboard — never commit real values here
+      - key: DATABASE_URL
+        sync: false
+
+      - key: GROQ_API_KEY
+        sync: false
+
+      - key: JWT_SECRET
+        sync: false
+
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile

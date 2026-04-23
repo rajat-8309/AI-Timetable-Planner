@@ -1,0 +1,198 @@
+<html>
+<head>
+  <title>Sign In — AI Timetable Planner</title>
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --navy-950:#05090f; --navy-900:#0a1220; --navy-800:#0f1e35;
+      --gold-400:#f0c060; --gold-300:#f5d080; --gold-500:#c8962a;
+      --slate-400:#8fa3be; --slate-300:#b5c7d8; --white:#f0f4f8;
+      --red-400:#e05c5c; --green-400:#4ec994; --blue-400:#5ba3d9;
+      --font-display:'Playfair Display',Georgia,serif;
+      --font-body:'IBM Plex Sans',sans-serif;
+      --font-mono:'IBM Plex Mono',monospace;
+      --radius:12px; --radius-sm:6px; --t:0.22s cubic-bezier(.4,0,.2,1);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:var(--font-body);background:var(--navy-950);color:var(--white);
+         min-height:100vh;display:flex;flex-direction:column;align-items:center;
+         justify-content:center;padding:24px;animation:pageFadeIn .35s ease both;}
+    @keyframes pageFadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+    body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+      background:radial-gradient(ellipse 70% 55% at 10% 10%,rgba(35,66,120,0.35) 0%,transparent 60%),
+      radial-gradient(ellipse 50% 40% at 90% 85%,rgba(200,150,42,0.08) 0%,transparent 55%);}
+
+    .card{position:relative;z-index:1;width:100%;max-width:400px;
+          background:var(--navy-900);border:1px solid rgba(240,192,96,0.14);
+          border-radius:var(--radius);overflow:hidden;
+          box-shadow:0 32px 80px rgba(0,0,0,0.5),0 1px 0 rgba(255,255,255,0.05) inset;}
+    .card-accent{height:3px;background:linear-gradient(90deg,var(--gold-500),var(--gold-400),var(--gold-300));}
+    .card-body{padding:40px 36px 36px;}
+
+    .eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.2em;
+             text-transform:uppercase;color:var(--gold-400);margin-bottom:8px;}
+    .card-title{font-family:var(--font-display);font-size:28px;font-weight:700;
+                color:var(--white);margin-bottom:28px;}
+
+    .account-chips{display:flex;gap:8px;margin-bottom:24px;}
+    .chip{flex:1;padding:10px 8px;border-radius:var(--radius-sm);cursor:pointer;
+          text-align:center;border:1px solid transparent;transition:all var(--t);user-select:none;}
+    .chip:hover{transform:translateY(-1px);}
+    .chip-head{background:rgba(240,192,96,0.08);border-color:rgba(240,192,96,0.2);color:var(--gold-400);}
+    .chip-head:hover,.chip-head.active{background:rgba(240,192,96,0.18);border-color:rgba(240,192,96,0.5);box-shadow:0 4px 14px rgba(240,192,96,0.15);}
+    .chip-teacher{background:rgba(78,201,148,0.08);border-color:rgba(78,201,148,0.2);color:var(--green-400);}
+    .chip-teacher:hover,.chip-teacher.active{background:rgba(78,201,148,0.18);border-color:rgba(78,201,148,0.5);box-shadow:0 4px 14px rgba(78,201,148,0.15);}
+    .chip-name{font-family:var(--font-mono);font-size:13px;font-weight:500;letter-spacing:.04em;}
+    .chip-role{font-size:10px;opacity:.7;margin-top:3px;}
+
+    .field{margin-bottom:16px;}
+    .field-label{font-size:11px;font-weight:500;text-transform:uppercase;
+                 letter-spacing:.1em;color:var(--slate-400);margin-bottom:6px;display:block;}
+    .field-input{width:100%;padding:12px 14px;background:var(--navy-800);
+                 border:1px solid rgba(240,192,96,0.12);border-radius:var(--radius-sm);
+                 color:var(--white);font-family:var(--font-body);font-size:14px;
+                 outline:none;transition:border-color var(--t),box-shadow var(--t);}
+    .field-input::placeholder{color:var(--slate-400);opacity:.6;}
+    .field-input:focus{border-color:rgba(240,192,96,0.45);box-shadow:0 0 0 3px rgba(240,192,96,0.08);}
+
+    .error-msg{display:none;padding:10px 14px;background:rgba(224,92,92,0.08);
+               border:1px solid rgba(224,92,92,0.25);border-radius:var(--radius-sm);
+               color:var(--red-400);font-size:13px;margin-bottom:14px;}
+    .error-msg.visible{display:block;}
+
+    .btn-login{width:100%;padding:13px;background:var(--gold-400);color:var(--navy-950);
+               border:none;border-radius:var(--radius-sm);font-family:var(--font-body);
+               font-weight:700;font-size:15px;cursor:pointer;transition:all var(--t);
+               display:flex;align-items:center;justify-content:center;gap:10px;margin-top:8px;}
+    .btn-login:hover:not(:disabled){background:var(--gold-300);transform:translateY(-1px);
+                                    box-shadow:0 8px 24px rgba(240,192,96,0.3);}
+    .btn-login:disabled{opacity:.5;cursor:not-allowed;}
+
+    .divider{display:flex;align-items:center;gap:12px;margin:20px 0;
+             font-size:12px;color:var(--slate-400);}
+    .divider::before,.divider::after{content:'';flex:1;height:1px;background:rgba(240,192,96,0.1);}
+
+    .link-row{text-align:center;font-size:13px;color:var(--slate-400);}
+    .link-row a{color:var(--gold-400);text-decoration:none;font-weight:500;transition:color var(--t);}
+    .link-row a:hover{color:var(--gold-300);}
+
+    .spinner{width:16px;height:16px;border:2px solid rgba(5,9,15,0.3);
+             border-top-color:var(--navy-950);border-radius:50%;animation:spin .7s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .brand{font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;
+           text-transform:uppercase;color:rgba(143,163,190,0.3);
+           margin-top:28px;text-align:center;position:relative;z-index:1;}
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="card-accent"></div>
+  <div class="card-body">
+    <div class="eyebrow">✦ AI Timetable Planner</div>
+    <h1 class="card-title">Sign In</h1>
+
+    <div class="account-chips">
+      <div class="chip chip-head" id="chipHead" onclick="selectAccount('Head')">
+        <div class="chip-name">Head</div>
+        <div class="chip-role">Full access</div>
+      </div>
+      <div class="chip chip-teacher" id="chipTeacher" onclick="selectAccount('Teacher')">
+        <div class="chip-name">Teacher</div>
+        <div class="chip-role">Create timetables</div>
+      </div>
+    </div>
+
+    <div class="error-msg" id="errorMsg"></div>
+
+    <div class="field">
+      <label class="field-label" for="username">Account</label>
+      <input type="text" id="username" class="field-input"
+             placeholder="Head  or  Teacher" autocomplete="username" />
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="password">Password</label>
+      <input type="password" id="password" class="field-input"
+             placeholder="Enter password" autocomplete="current-password" />
+    </div>
+
+    <button class="btn-login" id="loginBtn" onclick="doLogin()">Sign In</button>
+
+    <div class="divider">or</div>
+    <div class="link-row">Just viewing? <a href="index.html">Browse timetables →</a></div>
+  </div>
+</div>
+
+<div class="brand">✦ AI Timetable Planner · Academic Scheduling System</div>
+
+<script>
+const API = API_BASE;
+
+if (isLoggedIn()) {
+  const next = new URLSearchParams(location.search).get('next');
+  window.location.href = next || 'index.html';
+}
+
+function selectAccount(name) {
+  document.getElementById('username').value = name;
+  document.getElementById('password').focus();
+  document.getElementById('chipHead').classList.toggle('active', name === 'Head');
+  document.getElementById('chipTeacher').classList.toggle('active', name === 'Teacher');
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+document.getElementById('username').addEventListener('input', function() {
+  const v = this.value.trim().toLowerCase();
+  document.getElementById('chipHead').classList.toggle('active', v === 'head');
+  document.getElementById('chipTeacher').classList.toggle('active', v === 'teacher');
+});
+
+async function doLogin() {
+  const btn      = document.getElementById('loginBtn');
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  const errEl    = document.getElementById('errorMsg');
+  errEl.classList.remove('visible');
+
+  if (!username || !password) {
+    errEl.textContent = 'Please enter your account name and password.';
+    errEl.classList.add('visible');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Signing in…';
+
+  try {
+    const res  = await fetch(`${API}/auth/login`, {
+      method:  'POST',
+      headers: {'Content-Type':'application/json'},
+      body:    JSON.stringify({ username, password }),
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      saveSession(data.token, data.user);
+      const next = new URLSearchParams(location.search).get('next');
+      window.location.href = next || 'index.html';
+    } else {
+      errEl.textContent = data.error || 'Invalid account name or password.';
+      errEl.classList.add('visible');
+    }
+  } catch {
+    errEl.textContent = 'Cannot reach server. Make sure the backend is running.';
+    errEl.classList.add('visible');
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = 'Sign In';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,877 @@
+<html>
+<head>
+  <title>Edit Timetable — AI Timetable Planner</title>
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --navy-950:#05090f; --navy-900:#0a1220; --navy-800:#0f1e35; --navy-700:#162845;
+      --gold-400:#f0c060; --gold-300:#f5d080; --gold-500:#c8962a;
+      --slate-400:#8fa3be; --slate-300:#b5c7d8; --white:#f0f4f8;
+      --red-400:#e05c5c; --green-400:#4ec994; --blue-400:#5ba3d9;
+      --font-display:'Playfair Display',Georgia,serif;
+      --font-body:'IBM Plex Sans',sans-serif;
+      --font-mono:'IBM Plex Mono',monospace;
+      --radius:12px; --radius-sm:6px;
+      --t:0.22s cubic-bezier(.4,0,.2,1);
+    }
+
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html{scroll-behavior:smooth;}
+
+    body{
+      font-family:var(--font-body);
+      background:var(--navy-950);
+      color:var(--white);
+      min-height:100vh;
+      overflow-x:hidden;
+      animation:pageFadeIn .35s ease both;
+    }
+    @keyframes pageFadeIn{from{opacity:0}to{opacity:1}}
+
+    body::before{
+      content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+      background:
+        radial-gradient(ellipse 75% 55% at 5% 5%,rgba(35,66,120,0.3) 0%,transparent 60%),
+        radial-gradient(ellipse 50% 40% at 95% 90%,rgba(200,150,42,0.07) 0%,transparent 55%),
+        radial-gradient(ellipse 40% 30% at 50% 50%,rgba(15,30,53,0.2) 0%,transparent 70%);
+    }
+
+    .page{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:0 32px 100px;}
+
+    /* ── NAV ── */
+    .topnav{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:28px 0 0;margin-bottom:44px;
+    }
+    .back-link{
+      display:inline-flex;align-items:center;gap:8px;
+      color:var(--slate-400);text-decoration:none;font-size:13px;font-weight:500;
+      transition:color var(--t);
+    }
+    .back-link:hover{color:var(--gold-300);}
+    .back-link svg{width:16px;height:16px;}
+    .topnav-brand{font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-400);}
+
+    /* ── HEADER ── */
+    .page-header{margin-bottom:44px;padding-bottom:32px;border-bottom:1px solid rgba(240,192,96,0.1);}
+    .page-eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-400);margin-bottom:10px;}
+    .page-title{font-family:var(--font-display);font-size:clamp(26px,3.5vw,40px);font-weight:700;line-height:1.15;color:var(--white);}
+    .page-title span{color:var(--gold-400);}
+    .page-subtitle{margin-top:10px;font-size:14px;font-weight:300;color:var(--slate-400);}
+
+    /* ── SECTION ── */
+    .section{margin-bottom:36px;}
+    .section-label{display:flex;align-items:center;gap:12px;margin-bottom:20px;}
+    .section-label-text{font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--slate-400);white-space:nowrap;}
+    .section-line{flex:1;height:1px;background:rgba(240,192,96,0.1);}
+
+    /* ── FORM ── */
+    .form-grid{display:grid;grid-template-columns:2fr 1fr 1fr;gap:16px;}
+    .field-group{display:flex;flex-direction:column;gap:6px;}
+    .field-label{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.1em;color:var(--slate-400);}
+    .field-input,.field-select{
+      padding:12px 14px;
+      background:var(--navy-800);
+      border:1px solid rgba(240,192,96,0.12);
+      border-radius:var(--radius-sm);
+      color:var(--white);font-family:var(--font-body);font-size:14px;
+      outline:none;width:100%;
+      transition:border-color var(--t),box-shadow var(--t);
+    }
+    .field-input::placeholder{color:var(--slate-400);opacity:.6;}
+    .field-input:focus,.field-select:focus{border-color:rgba(240,192,96,0.5);box-shadow:0 0 0 3px rgba(240,192,96,0.09),0 1px 4px rgba(0,0,0,0.2);}
+    .field-input.error{border-color:rgba(224,92,92,0.5);}
+    .field-select{appearance:none;padding-right:36px;cursor:pointer;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%238fa3be' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat:no-repeat;background-position:right 12px center;}
+    .field-select option{background:var(--navy-900);}
+
+    /* ── SAVE ROW ── */
+    .save-row{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:20px 24px;
+      background:var(--navy-900);border:1px solid rgba(240,192,96,0.12);
+      border-radius:var(--radius);gap:16px;flex-wrap:wrap;
+      margin-bottom:40px;
+      box-shadow:0 1px 0 rgba(255,255,255,0.04) inset;
+    }
+    .save-row-info{font-size:13px;color:var(--slate-400);}
+    .save-row-info strong{color:var(--white);}
+
+    /* ── BUTTONS ── */
+    .btn{
+      display:inline-flex;align-items:center;gap:8px;
+      padding:11px 22px;border-radius:var(--radius-sm);
+      font-family:var(--font-body);font-size:13px;font-weight:500;
+      cursor:pointer;border:none;text-decoration:none;
+      transition:all var(--t);white-space:nowrap;
+    }
+    .btn svg{width:14px;height:14px;flex-shrink:0;}
+    .btn-save{background:linear-gradient(135deg,var(--gold-400),var(--gold-300));color:var(--navy-950);font-weight:700;}
+    .btn-save:hover{background:linear-gradient(135deg,var(--gold-300),#fde090);transform:translateY(-1px);box-shadow:0 8px 24px rgba(240,192,96,0.3);}
+    .btn-save:active{transform:translateY(0);}
+    .btn-save:disabled{opacity:.5;cursor:not-allowed;}
+    .btn-view{background:rgba(240,192,96,0.1);color:var(--gold-300);border:1px solid rgba(240,192,96,0.22);}
+    .btn-view:hover{background:rgba(240,192,96,0.2);}
+    .btn-regen{background:rgba(91,163,217,0.08);color:var(--blue-400);border:1px solid rgba(91,163,217,0.22);}
+    .btn-regen:hover{background:rgba(91,163,217,0.18);border-color:rgba(91,163,217,0.45);box-shadow:0 0 0 3px rgba(91,163,217,0.08);}
+    .btn-regen:active:not(:disabled){transform:translateY(1px);}
+    .btn-regen:disabled{opacity:.5;cursor:not-allowed;}
+
+    /* ── SLOT EDITOR ── */
+    .editor-grid-wrap{background:var(--navy-900);border:1px solid rgba(240,192,96,0.12);border-radius:var(--radius);overflow:auto;margin-bottom:8px;box-shadow:0 1px 0 rgba(255,255,255,0.04) inset;}
+    .editor-table{width:100%;border-collapse:collapse;min-width:660px;}
+    .editor-table thead tr{background:rgba(240,192,96,0.04);position:sticky;top:0;z-index:5;}
+    .editor-table th{padding:10px 10px;font-size:10px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.12em;border-bottom:1px solid rgba(240,192,96,0.1);border-right:1px solid rgba(240,192,96,0.06);white-space:nowrap;color:var(--slate-400);}
+    .editor-table th.th-day{color:var(--gold-300);text-align:center;min-width:110px;}
+    .editor-table td{border-right:1px solid rgba(240,192,96,0.05);border-bottom:1px solid rgba(240,192,96,0.05);padding:0;height:58px;vertical-align:top;}
+    .editor-table td:last-child{border-right:none;}
+    .ed-time{height:58px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:10px;color:var(--slate-400);background:rgba(240,192,96,0.02);padding:4px 8px;text-align:center;line-height:1.4;width:80px;}
+    .ed-cell{height:58px;cursor:pointer;transition:background var(--t);position:relative;}
+    .ed-cell:hover{background:rgba(240,192,96,0.05);}
+    .ed-cell.drop-target{background:rgba(240,192,96,0.1);outline:2px dashed rgba(240,192,96,0.4);outline-offset:-2px;}
+    .ed-empty{height:58px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.05);font-size:16px;letter-spacing:3px;}
+    .ed-slot{height:58px;padding:7px 9px;display:flex;flex-direction:column;justify-content:center;gap:2px;cursor:pointer;transition:filter var(--t),transform var(--t),outline var(--t);position:relative;overflow:hidden;}
+    .ed-slot:hover{filter:brightness(1.15);}
+    .ed-slot.selected{outline:2px solid var(--gold-400);outline-offset:-2px;transform:scale(1.03);z-index:3;position:relative;box-shadow:0 4px 18px rgba(240,192,96,0.25);}
+    .ed-subject{font-weight:600;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .ed-teacher{font-size:9px;font-family:var(--font-mono);opacity:.72;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .ed-badge{font-size:8px;font-family:var(--font-mono);text-transform:uppercase;padding:1px 5px;border-radius:8px;background:rgba(0,0,0,0.22);display:inline-block;margin-top:1px;width:fit-content;}
+    .ed-break-row td{height:30px!important;background:rgba(240,192,96,0.02);}
+    .ed-break-label{height:30px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:9px;color:rgba(240,192,96,0.22);text-transform:uppercase;letter-spacing:.1em;}
+    .editor-toolbar{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;}
+    .editor-status{font-size:13px;color:var(--slate-400);flex:1;}
+    .editor-status strong{color:var(--white);}
+    .editor-hint{font-size:12px;color:var(--slate-300);margin-bottom:14px;padding:12px 16px;background:rgba(240,192,96,0.04);border:1px solid rgba(240,192,96,0.12);border-radius:var(--radius-sm);line-height:1.7;}
+    .conflict-list-editor{margin:0 0 12px;display:flex;flex-direction:column;gap:5px;}
+    .conflict-item-editor{font-size:11px;color:var(--slate-300);padding:6px 10px;background:rgba(224,92,92,0.07);border-radius:var(--radius-sm);border-left:2px solid var(--red-400);font-family:var(--font-mono);line-height:1.5;}
+    .ec0{background:rgba(91,163,217,0.14);color:#a8d8f5;border-left:3px solid #5ba3d9;}
+    .ec1{background:rgba(78,201,148,0.12);color:#9ee8cc;border-left:3px solid #4ec994;}
+    .ec2{background:rgba(240,192,96,0.12);color:#f5d590;border-left:3px solid #f0c060;}
+    .ec3{background:rgba(155,121,212,0.12);color:#d0b8f0;border-left:3px solid #9b79d4;}
+    .ec4{background:rgba(232,144,74,0.12);color:#f5c89a;border-left:3px solid #e8904a;}
+    .ec5{background:rgba(58,196,184,0.12);color:#8ee8e0;border-left:3px solid #3ac4b8;}
+
+    /* ── DANGER ZONE ── */
+    .danger-zone{
+      padding:24px 28px;
+      background:rgba(224,92,92,0.04);
+      border:1px solid rgba(224,92,92,0.2);
+      border-radius:var(--radius);
+      box-shadow:0 0 0 1px rgba(224,92,92,0.06) inset;
+    }
+    .danger-zone h3{font-size:14px;font-weight:600;color:var(--red-400);margin-bottom:8px;}
+    .danger-zone p{font-size:13px;color:var(--slate-400);line-height:1.6;margin-bottom:16px;}
+    .btn-delete{background:rgba(224,92,92,0.1);color:var(--red-400);border:1px solid rgba(224,92,92,0.2);}
+    .btn-delete:hover{background:rgba(224,92,92,0.2);border-color:rgba(224,92,92,0.45);}
+
+    /* ── ROSTER TABLE ── */
+    .roster-wrap{
+      background:var(--navy-900);border:1px solid rgba(240,192,96,0.12);
+      border-radius:var(--radius);overflow:hidden;
+      box-shadow:0 1px 0 rgba(255,255,255,0.04) inset;
+    }
+    .roster-table{width:100%;border-collapse:collapse;}
+    .roster-table th{
+      padding:11px 16px;
+      font-size:10px;font-family:var(--font-mono);text-transform:uppercase;
+      letter-spacing:.14em;color:var(--gold-400);text-align:left;
+      background:rgba(240,192,96,0.04);border-bottom:1px solid rgba(240,192,96,0.1);
+    }
+    .roster-table td{
+      padding:12px 16px;font-size:13px;
+      border-bottom:1px solid rgba(240,192,96,0.05);
+    }
+    .roster-table tr:last-child td{border-bottom:none;}
+    .roster-table tr:hover td{background:rgba(255,255,255,0.02);}
+    .teacher-av{
+      width:28px;height:28px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      font-size:11px;font-weight:600;flex-shrink:0;
+    }
+    .name-cell{display:flex;align-items:center;gap:10px;}
+    .type-chip{
+      display:inline-block;font-size:10px;font-family:var(--font-mono);
+      padding:2px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:.04em;
+    }
+    .lec{background:rgba(91,163,217,0.15);color:#8cc8f0;border:1px solid rgba(91,163,217,0.2);}
+    .lab{background:rgba(78,201,148,0.12);color:#80d8b0;border:1px solid rgba(78,201,148,0.2);}
+
+    /* ── REGEN INFO BOX ── */
+    .regen-box{
+      padding:22px 26px;
+      background:rgba(91,163,217,0.05);
+      border:1px solid rgba(91,163,217,0.2);
+      border-radius:var(--radius);
+      display:flex;align-items:flex-start;gap:16px;
+      box-shadow:0 1px 0 rgba(91,163,217,0.08) inset;
+    }
+    .regen-icon{font-size:24px;flex-shrink:0;margin-top:2px;}
+    .regen-text h4{font-size:14px;font-weight:600;color:var(--blue-400);margin-bottom:4px;}
+    .regen-text p{font-size:13px;color:var(--slate-400);line-height:1.6;}
+
+    /* ── LOADING ── */
+    .loading-screen{
+      position:fixed;inset:0;z-index:9999;background:var(--navy-950);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+    }
+    .spinner{width:36px;height:36px;border:2px solid rgba(240,192,96,.12);
+      border-top-color:var(--gold-400);border-radius:50%;animation:spin .8s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .loading-text{font-family:var(--font-mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--slate-400);}
+
+    /* ── MODAL ── */
+    .modal-overlay{position:fixed;inset:0;z-index:1000;background:rgba(5,9,15,.8);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s ease;}
+    .modal-overlay.active{opacity:1;pointer-events:all;}
+    .modal{background:var(--navy-800);border:1px solid rgba(240,192,96,.2);border-radius:var(--radius);padding:36px;width:100%;max-width:420px;transform:scale(.96);transition:transform .22s cubic-bezier(.4,0,.2,1);box-shadow:0 32px 80px rgba(0,0,0,0.6),0 1px 0 rgba(255,255,255,0.06) inset;}
+    .modal-overlay.active .modal{transform:scale(1);}
+    .modal-title{font-family:var(--font-display);font-size:20px;color:var(--white);margin-bottom:10px;}
+    .modal-text{font-size:14px;color:var(--slate-300);line-height:1.7;margin-bottom:24px;}
+    .modal-text strong{color:var(--gold-300);}
+    .modal-btns{display:flex;gap:10px;justify-content:flex-end;}
+    .btn-cancel{padding:10px 20px;background:transparent;border:1px solid rgba(255,255,255,.1);border-radius:var(--radius-sm);color:var(--slate-300);font-family:var(--font-body);font-size:14px;cursor:pointer;transition:all var(--t);}
+    .btn-cancel:hover{background:rgba(255,255,255,.05);}
+    .btn-del-confirm{padding:10px 24px;background:var(--red-400);border:none;border-radius:var(--radius-sm);color:#fff;font-family:var(--font-body);font-weight:600;font-size:14px;cursor:pointer;transition:all var(--t);}
+    .btn-del-confirm:hover{background:#cc4444;}
+
+    /* ── TOAST ── */
+    .toast-c{position:fixed;bottom:32px;right:32px;z-index:9999;display:flex;flex-direction:column;gap:10px;}
+    .toast{display:flex;align-items:center;gap:12px;padding:13px 18px;background:var(--navy-800);border-radius:var(--radius-sm);font-size:13px;min-width:240px;box-shadow:0 8px 28px rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.07);animation:toastIn .3s ease;}
+    .toast.s{border-left:3px solid var(--green-400);}
+    .toast.e{border-left:3px solid var(--red-400);}
+    .toast.i{border-left:3px solid var(--blue-400);}
+    @keyframes toastIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+
+    @media(max-width:700px){
+      .page{padding:0 16px 80px;}
+      .form-grid{grid-template-columns:1fr;}
+      .regen-box{flex-direction:column;}
+    }
+  </style>
+</head>
+<body>
+
+<div class="loading-screen" id="loadingScreen">
+  <div class="spinner"></div>
+  <div class="loading-text">Loading timetable…</div>
+</div>
+
+<div class="page" id="mainPage" style="display:none">
+
+  
+  <nav class="topnav">
+    <a class="back-link" id="backViewLink" href="index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+      Back to Timetable
+    </a>
+    <span class="topnav-brand">✦ AI Timetable Planner</span>
+  </nav>
+
+  
+  <div class="page-header">
+    <div class="page-eyebrow">Timetable Editor</div>
+    <h1 class="page-title">Edit <span id="headerName">Timetable</span></h1>
+    <p class="page-subtitle">Update the name, semester, or department. Teachers and slots are preserved.</p>
+  </div>
+
+  
+  <div class="section">
+    <div class="section-label">
+      <span class="section-label-text">01 — Timetable Details</span>
+      <div class="section-line"></div>
+    </div>
+
+    <div class="form-grid" style="margin-bottom:24px">
+      <div class="field-group">
+        <label class="field-label" for="ttName">Timetable Name *</label>
+        <input type="text" id="ttName" class="field-input" placeholder="e.g. CSE Division A — Semester 4" />
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="ttSemester">Semester</label>
+        <select id="ttSemester" class="field-select">
+          <option value="">— Select —</option>
+          <option>Sem 1</option><option>Sem 2</option><option>Sem 3</option>
+          <option>Sem 4</option><option>Sem 5</option><option>Sem 6</option>
+          <option>Sem 7</option><option>Sem 8</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="ttDept">Department</label>
+        <input type="text" id="ttDept" class="field-input" placeholder="e.g. CSE, IT, ECE" />
+      </div>
+    </div>
+
+    <div class="save-row">
+      <div class="save-row-info">
+        Timetable ID: <strong id="ttId">—</strong> &nbsp;·&nbsp;
+        Created: <strong id="ttCreated">—</strong>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <a class="btn btn-view" id="viewLink" href="#">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          View Timetable
+        </a>
+        <button class="btn btn-save" id="saveBtn" onclick="saveMetadata()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Save Changes
+        </button>
+      </div>
+    </div>
+  </div>
+
+  
+  <div class="section">
+    <div class="section-label">
+      <span class="section-label-text">02 — Teacher Roster</span>
+      <div class="section-line"></div>
+      <span style="font-family:var(--font-mono);font-size:11px;color:var(--slate-400)" id="teacherCount">0 teachers</span>
+    </div>
+
+    <div class="roster-wrap">
+      <table class="roster-table">
+        <thead>
+          <tr>
+            <th>Teacher</th>
+            <th>Branch</th>
+            <th>Subject</th>
+            <th>Lectures/wk</th>
+            <th>Labs/wk</th>
+            <th>Schedule</th>
+          </tr>
+        </thead>
+        <tbody id="rosterBody">
+          <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--slate-400)">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:12px;color:var(--slate-400);margin-top:10px;padding:0 4px">
+      To change teachers, create a new timetable or use Regenerate below to get a fresh schedule with the same teacher list.
+    </p>
+  </div>
+
+  
+  <div class="section">
+    <div class="section-label">
+      <span class="section-label-text">03 — Regenerate Schedule</span>
+      <div class="section-line"></div>
+    </div>
+
+    <div class="regen-box" style="margin-bottom:20px">
+      <div class="regen-icon">🔄</div>
+      <div class="regen-text">
+        <h4>Re-run AI Scheduling</h4>
+        <p>Keeps the same teachers and subjects but generates a completely new weekly schedule.
+           Useful when the current schedule isn't ideal or you want a different distribution.
+           The existing slots will be replaced — this cannot be undone.</p>
+      </div>
+    </div>
+
+    <button class="btn btn-regen" id="regenBtn" onclick="regenerate()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+      Regenerate Schedule with AI
+    </button>
+  </div>
+
+  
+  <div class="section">
+    <div class="section-label">
+      <span class="section-label-text">03B — Schedule Editor</span>
+      <div class="section-line"></div>
+      <span style="font-family:var(--font-mono);font-size:11px;color:var(--slate-400)" id="editorChangeLabel">No changes</span>
+    </div>
+
+    <div class="editor-hint">
+      💡 Click a slot to <strong style="color:var(--gold-300)">select</strong> it, then click an empty cell to <strong style="color:var(--gold-300)">move</strong> it there — or click another filled slot to <strong style="color:var(--gold-300)">swap</strong> them. Press <kbd style="background:var(--navy-800);border:1px solid rgba(255,255,255,.1);padding:1px 6px;border-radius:3px;font-family:var(--font-mono);font-size:10px">Esc</kbd> to deselect.
+    </div>
+
+    <div class="editor-toolbar">
+      <div class="editor-status" id="editorStatus">Loading schedule…</div>
+      <button class="btn btn-outline" id="editorResetBtn" onclick="resetEditorChanges()" style="display:none">↺ Reset</button>
+      <button class="btn btn-save" id="editorSaveBtn" onclick="saveSlotChanges()" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Save Layout
+      </button>
+    </div>
+
+    <div id="editorConflicts" class="conflict-list-editor" style="display:none"></div>
+    <div class="editor-grid-wrap"><table class="editor-table" id="editorGrid"></table></div>
+  </div>
+
+  
+  <div class="section">
+    <div class="section-label">
+      <span class="section-label-text">04 — Danger Zone</span>
+      <div class="section-line"></div>
+    </div>
+
+    <div class="danger-zone">
+      <h3>Delete This Timetable</h3>
+      <p>Permanently deletes this timetable and all its teachers, slots, and data.
+         This action cannot be undone.</p>
+      <button class="btn btn-delete" onclick="openDeleteModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+        Delete Timetable
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<div class="modal-overlay" id="delModal">
+  <div class="modal">
+    <div class="modal-title">Delete Timetable?</div>
+    <p class="modal-text">You are about to permanently delete <strong id="delName"></strong>. All teachers, subjects, and scheduled slots will be removed.</p>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-del-confirm" id="delConfirmBtn">Yes, Delete</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-c" id="toastC"></div>
+
+<script>
+const API = API_BASE;
+const P_COLORS = ['#5ba3d9','#4ec994','#f0c060','#9b79d4','#e8904a','#3ac4b8','#e06080','#8cb464'];
+
+let timetable = null;
+
+window.addEventListener('DOMContentLoaded', () => {
+  if (!requireHead()) return;
+  renderAuthBar('.topnav');
+  const params = new URLSearchParams(window.location.search);
+  const id = parseInt(params.get('id'));
+  if (!id) {
+    show('mainPage');
+    hide('loadingScreen');
+    toast('No timetable ID in URL.', 'e');
+    return;
+  }
+  loadTimetable(id);
+});
+
+async function loadTimetable(id) {
+  try {
+    const res  = await authFetch(`${API}/timetables/${id}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error);
+    timetable = json.data;
+  } catch (e) {
+    hide('loadingScreen');
+    show('mainPage');
+    toast(`Could not load timetable: ${e.message}`, 'e');
+    return;
+  }
+  renderPage();
+}
+
+function renderPage() {
+  const t = timetable;
+
+  document.getElementById('headerName').textContent = t.name;
+  document.title = `Edit ${t.name} — AI Timetable Planner`;
+
+  document.getElementById('backViewLink').href = `view.html?id=${t.id}`;
+  document.getElementById('viewLink').href     = `view.html?id=${t.id}`;
+
+  document.getElementById('ttId').textContent      = `#${String(t.id).padStart(4,'0')}`;
+  document.getElementById('ttCreated').textContent  = fmtDate(t.created_at);
+  document.getElementById('delName').textContent    = `"${t.name}"`;
+
+  document.getElementById('ttName').value    = t.name;
+  document.getElementById('ttDept').value    = t.department || '';
+
+  const semEl = document.getElementById('ttSemester');
+  for (const opt of semEl.options) {
+    if (opt.value === t.semester) { opt.selected = true; break; }
+  }
+
+  renderRoster(t.teachers);
+
+  initEditor(t.slots || []);
+
+  hide('loadingScreen');
+  show('mainPage');
+}
+
+function renderRoster(teachers) {
+  const branchList = [...new Set(teachers.map(t => t.branch_name))];
+  document.getElementById('teacherCount').textContent =
+    `${teachers.length} teacher${teachers.length !== 1 ? 's' : ''}`;
+
+  const rows = teachers.map(t => {
+    const bIdx  = branchList.indexOf(t.branch_name);
+    const color = P_COLORS[bIdx % P_COLORS.length];
+    const inits = t.teacher_name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+    return `<tr>
+      <td>
+        <div class="name-cell">
+          <div class="teacher-av" style="background:${color}22;color:${color};border:1px solid ${color}44">${esc(inits)}</div>
+          ${esc(t.teacher_name)}
+        </div>
+      </td>
+      <td style="color:var(--slate-300)">${esc(t.branch_name)}</td>
+      <td style="color:var(--slate-300)">${esc(t.subject_name)}</td>
+      <td style="font-family:var(--font-mono);font-size:12px">${t.no_of_lectures}</td>
+      <td style="font-family:var(--font-mono);font-size:12px">${t.no_of_labs}</td>
+      <td>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          ${t.no_of_lectures > 0 ? `<span class="type-chip lec">${t.no_of_lectures}×${t.lecture_length}h Lec</span>` : ''}
+          ${t.no_of_labs > 0     ? `<span class="type-chip lab">${t.no_of_labs}×${t.lab_length}h Lab</span>` : ''}
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('rosterBody').innerHTML = rows ||
+    `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--slate-400)">No teachers found.</td></tr>`;
+}
+
+async function saveMetadata() {
+  const name = document.getElementById('ttName').value.trim();
+  const sem  = document.getElementById('ttSemester').value;
+  const dept = document.getElementById('ttDept').value.trim();
+
+  if (!name) {
+    document.getElementById('ttName').classList.add('error');
+    toast('Timetable name is required.', 'e');
+    return;
+  }
+  document.getElementById('ttName').classList.remove('error');
+
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  try {
+    const res  = await authFetch(`${API}/timetables/${timetable.id}`, {
+      method:  'PUT',
+      body:    JSON.stringify({ name, semester: sem, department: dept }),
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      timetable.name       = name;
+      timetable.semester   = sem;
+      timetable.department = dept;
+      document.getElementById('headerName').textContent = name;
+      document.title = `Edit ${name} — AI Timetable Planner`;
+      toast('Changes saved successfully!', 's');
+    } else {
+      toast(data.error || 'Save failed.', 'e');
+    }
+  } catch {
+    toast('Backend offline — changes not saved.', 'e');
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Changes`;
+}
+
+async function regenerate() {
+  const btn = document.getElementById('regenBtn');
+  const confirmed = window.confirm(
+    `Regenerate the schedule for "${timetable.name}"?\n\nThis will replace all current slots with a new AI-generated schedule. Teacher list is preserved.`
+  );
+  if (!confirmed) return;
+
+  btn.disabled = true;
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;animation:spin .7s linear infinite"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> Regenerating…`;
+
+  try {
+    const res  = await authFetch(`${API}/timetables/${timetable.id}/regenerate`, { method:'POST' });
+    const data = await res.json();
+
+    if (data.success) {
+      try {
+        const fresh = await fetch(`${API}/timetables/${timetable.id}`);
+        const fJson = await fresh.json();
+        if (fJson.success) { timetable = fJson.data; renderRoster(timetable.teachers); }
+      } catch {}
+
+      toast(`Schedule regenerated in ${data.attempts ?? 1} attempt(s)! Redirecting to view…`, 's');
+      setTimeout(() => window.location.href = `view.html?id=${timetable.id}`, 1800);
+    } else {
+      toast(data.error || 'Regeneration failed.', 'e');
+      btn.disabled = false;
+      btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> Regenerate Schedule with AI`;
+    }
+  } catch {
+    toast('Backend offline — cannot regenerate.', 'e');
+    btn.disabled = false;
+    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> Regenerate Schedule with AI`;
+  }
+}
+
+function openDeleteModal() {
+  document.getElementById('delModal').classList.add('active');
+  document.getElementById('delConfirmBtn').onclick = async () => {
+    closeModal();
+    try {
+      await authFetch(`${API}/timetables/${timetable.id}`, { method:'DELETE' });
+    } catch {}
+    toast('Timetable deleted — redirecting…', 's');
+    setTimeout(() => window.location.href = 'index.html', 1600);
+  };
+}
+
+function closeModal() {
+  document.getElementById('delModal').classList.remove('active');
+}
+document.getElementById('delModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('delModal')) closeModal();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
+
+const ED_DAYS   = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
+const ED_HOURS  = ['09:00-10:00','10:00-11:00','11:00-12:00','12:00-13:00',
+                   '14:00-15:00','15:00-16:00','16:00-17:00'];
+const ED_COLORS = ['ec0','ec1','ec2','ec3','ec4','ec5'];
+
+let edSlots    = [];   // live working copy
+let edOriginal = [];   // snapshot for reset
+let edSelected = null; // {slot, day, ts}
+let edBranchColor = {};
+
+function initEditor(slots) {
+  edSlots    = JSON.parse(JSON.stringify(slots));
+  edOriginal = JSON.parse(JSON.stringify(slots));
+  edSelected = null;
+  buildEditorColors(slots);
+  renderEditorGrid();
+  updateEditorStatus();
+}
+
+function buildEditorColors(slots) {
+  edBranchColor = {};
+  [...new Set(slots.map(s => s.branch_name))].forEach((b, i) => {
+    edBranchColor[b] = ED_COLORS[i % ED_COLORS.length];
+  });
+}
+
+function renderEditorGrid() {
+  const activeDays = ED_DAYS.filter(d => edSlots.some(s => s.day === d));
+  if (!activeDays.length) {
+    document.getElementById('editorGrid').innerHTML =
+      '<thead></thead><tbody><tr><td colspan="2" style="text-align:center;padding:24px;color:var(--slate-400);font-size:13px">No slots yet — generate or regenerate the schedule first.</td></tr></tbody>';
+    document.getElementById('editorStatus').innerHTML = 'No slots to edit.';
+    return;
+  }
+
+  const lkp = {};
+  edSlots.forEach(s => { (lkp[s.day] ??= {})[s.time_slot] ??= []; lkp[s.day][s.time_slot].push(s); });
+
+  let html = `<thead><tr><th style="width:80px;text-align:center">Time</th>${activeDays.map(d=>`<th class="th-day">${d}</th>`).join('')}</tr></thead><tbody>`;
+
+  let prevH = null;
+  ED_HOURS.forEach(ts => {
+    const startH = parseInt(ts.split(':')[0]);
+    if (prevH === 12 && startH === 14) {
+      html += `<tr class="ed-break-row"><td><div class="ed-break-label">Lunch</div></td>${activeDays.map(()=>`<td style="height:30px"></td>`).join('')}</tr>`;
+    }
+    prevH = startH;
+
+    html += `<tr><td><div class="ed-time">${ts.replace('-','—')}</div></td>`;
+
+    activeDays.forEach(day => {
+      const cell   = lkp[day]?.[ts] || [];
+      const isSelD = edSelected?.day === day && edSelected?.ts === ts;
+
+      if (cell.length === 0) {
+        const dropCls = edSelected ? ' drop-target' : '';
+        html += `<td class="ed-cell${dropCls}" onclick="edClick('${day}','${ts}')"><div class="ed-empty">···</div></td>`;
+      } else {
+        const s   = cell[0];
+        const cls = edBranchColor[s.branch_name] || 'ec0';
+        const sel = isSelD ? ' selected' : '';
+        html += `<td onclick="edClick('${day}','${ts}')">
+          <div class="ed-slot ${cls}${sel}" title="${esc(s.subject_name)} — ${esc(s.teacher_name)}">
+            <div class="ed-subject">${esc(s.subject_name)}</div>
+            <div class="ed-teacher">${esc(s.teacher_name)}</div>
+            <span class="ed-badge">${s.type}</span>
+          </div>
+        </td>`;
+      }
+    });
+
+    html += '</tr>';
+  });
+
+  html += '</tbody>';
+  document.getElementById('editorGrid').innerHTML = html;
+}
+
+function edClick(day, ts) {
+  const cell = edSlots.filter(s => s.day === day && s.time_slot === ts);
+
+  if (!edSelected) {
+    if (!cell.length) return;
+    edSelected = { slot: cell[0], day, ts };
+    renderEditorGrid();
+    document.getElementById('editorStatus').innerHTML =
+      `Selected: <strong>${esc(cell[0].subject_name)}</strong> on ${day} ${ts} — click a cell to move or swap`;
+    return;
+  }
+
+  if (edSelected.day === day && edSelected.ts === ts) {
+    edSelected = null;
+    renderEditorGrid();
+    updateEditorStatus();
+    return;
+  }
+
+  if (cell.length === 0) {
+    edMoveSlot(edSelected.day, edSelected.ts, day, ts);
+  } else {
+    edSwapSlots(edSelected.day, edSelected.ts, day, ts);
+  }
+
+  edSelected = null;
+  renderEditorGrid();
+  updateEditorStatus();
+  showEditorButtons(true);
+  checkEditorConflicts();
+}
+
+function edMoveSlot(fromDay, fromTs, toDay, toTs) {
+  edSlots.forEach(s => {
+    if (s.day === fromDay && s.time_slot === fromTs) { s.day = toDay; s.time_slot = toTs; }
+  });
+  toast(`Moved ${fromDay} ${fromTs} → ${toDay} ${toTs}`, 'i');
+}
+
+function edSwapSlots(aDay, aTs, bDay, bTs) {
+  edSlots.forEach(s => {
+    if      (s.day === aDay && s.time_slot === aTs) { s.day = bDay; s.time_slot = bTs; }
+    else if (s.day === bDay && s.time_slot === bTs) { s.day = aDay; s.time_slot = aTs; }
+  });
+  toast(`Swapped ${aDay} ${aTs} ↔ ${bDay} ${bTs}`, 'i');
+}
+
+function checkEditorConflicts() {
+  const seen_t = {}, seen_b = {};
+  const conflicts = [];
+  edSlots.forEach(s => {
+    const tk = `${s.teacher_name.toLowerCase()}||${s.day}||${s.time_slot}`;
+    const bk = `${s.branch_name.toLowerCase()}||${s.day}||${s.time_slot}`;
+    if (seen_t[tk]) conflicts.push(`Teacher conflict: ${s.teacher_name} — ${s.day} ${s.time_slot}`);
+    else seen_t[tk] = true;
+    if (seen_b[bk]) conflicts.push(`Branch conflict: ${s.branch_name} — ${s.day} ${s.time_slot}`);
+    else seen_b[bk] = true;
+  });
+  const box = document.getElementById('editorConflicts');
+  if (conflicts.length) {
+    box.style.display = '';
+    box.innerHTML = `<div style="font-size:11px;color:var(--red-400);font-weight:600;margin-bottom:6px">⚠ ${conflicts.length} conflict(s) — resolve before saving</div>` +
+      conflicts.map(c => `<div class="conflict-item-editor">${esc(c)}</div>`).join('');
+  } else {
+    box.style.display = 'none';
+  }
+  return conflicts.length === 0;
+}
+
+function updateEditorStatus() {
+  const n = countEditorChanges();
+  document.getElementById('editorChangeLabel').textContent = n ? `${n} change${n>1?'s':''}` : 'No changes';
+  document.getElementById('editorStatus').innerHTML = n
+    ? `<strong>${n} slot${n>1?'s':''} moved</strong> — save to keep or reset to undo`
+    : `<span style="color:var(--green-400)">✓</span> No changes — click any slot to rearrange`;
+}
+
+function countEditorChanges() {
+  let n = 0;
+  edSlots.forEach((s, i) => {
+    const o = edOriginal[i];
+    if (!o || s.day !== o.day || s.time_slot !== o.time_slot) n++;
+  });
+  return n;
+}
+
+function showEditorButtons(visible) {
+  document.getElementById('editorSaveBtn').style.display  = visible ? '' : 'none';
+  document.getElementById('editorResetBtn').style.display = visible ? '' : 'none';
+}
+
+function resetEditorChanges() {
+  edSlots   = JSON.parse(JSON.stringify(edOriginal));
+  edSelected = null;
+  renderEditorGrid();
+  updateEditorStatus();
+  showEditorButtons(false);
+  document.getElementById('editorConflicts').style.display = 'none';
+  toast('Changes reset', 'i');
+}
+
+async function saveSlotChanges() {
+  if (!checkEditorConflicts()) { toast('Resolve conflicts before saving.', 'e'); return; }
+  if (!timetable) return;
+
+  const btn = document.getElementById('editorSaveBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  try {
+    const res  = await authFetch(`${API}/timetables/${timetable.id}/slots`, {
+      method: 'PUT',
+      body: JSON.stringify({ slots: edSlots }),
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      edOriginal = JSON.parse(JSON.stringify(edSlots));
+      showEditorButtons(false);
+      updateEditorStatus();
+      toast('Slot layout saved!', 's');
+    } else if (data.conflicts?.length) {
+      document.getElementById('editorConflicts').style.display = '';
+      document.getElementById('editorConflicts').innerHTML =
+        data.conflicts.map(c => `<div class="conflict-item-editor">${esc(c)}</div>`).join('');
+      toast('Server-side conflicts detected.', 'e');
+    } else {
+      toast(data.error || 'Save failed.', 'e');
+    }
+  } catch {
+    toast('Backend offline — changes not saved.', 'e');
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Layout`;
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && edSelected) { edSelected = null; renderEditorGrid(); updateEditorStatus(); }
+});
+
+function toast(msg, type='i') {
+  const c = document.getElementById('toastC');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  const icons = {s:'✓',e:'✕',i:'ℹ'};
+  const cols  = {s:'var(--green-400)',e:'var(--red-400)',i:'var(--blue-400)'};
+  t.innerHTML = `<span style="color:${cols[type]}">${icons[type]}</span>${msg}`;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+function show(id) { document.getElementById(id).style.display=''; }
+function hide(id) { document.getElementById(id).style.display='none'; }
+function esc(s)   { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtDate(ds) {
+  try { return new Date(ds).toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'}); }
+  catch { return ds; }
+}
+</script>
+
+<footer style="position:relative;z-index:1;text-align:center;padding:40px 32px 28px;border-top:1px solid rgba(240,192,96,0.07);margin-top:20px;">
+  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:rgba(143,163,190,0.35);">✦ AI Timetable Planner &nbsp;·&nbsp; Academic Scheduling System</span>
+</footer>
+</body>
+</html>

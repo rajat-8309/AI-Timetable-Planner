@@ -1,0 +1,1604 @@
+<html>
+<head>
+  <title>View Timetable — AI Timetable Planner</title>
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ─── TOKENS ─────────────────────────── */
+    :root {
+      --ink-950: #06090e;
+      --ink-900: #0c1524;
+      --ink-800: #111f38;
+      --ink-700: #182d50;
+      --ink-600: #1f3a68;
+      --gold-500: #c8962a;
+      --gold-400: #f0c060;
+      --gold-300: #f5d590;
+      --gold-200: #faeac0;
+      --amber-400: #e8a030;
+      --slate-500: #607890;
+      --slate-400: #8fa3be;
+      --slate-300: #b5c7d8;
+      --slate-200: #d4e0ea;
+      --white: #eef2f7;
+      --red-400:   #e05c5c;
+      --green-400: #4ec994;
+      --blue-400:  #5ba3d9;
+      --teal-400:  #3ac4b8;
+      --violet-400:#9b79d4;
+      --orange-400:#e8904a;
+      --rose-400:  #e06080;
+
+      /* slot palette */
+      --c0-bg: rgba(91,163,217,0.13);  --c0-fg:#a8d8f5; --c0-bar:#5ba3d9;
+      --c1-bg: rgba(78,201,148,0.11);  --c1-fg:#9ee8cc; --c1-bar:#4ec994;
+      --c2-bg: rgba(240,192,96,0.11);  --c2-fg:#f5d590; --c2-bar:#f0c060;
+      --c3-bg: rgba(155,121,212,0.12); --c3-fg:#d0b8f0; --c3-bar:#9b79d4;
+      --c4-bg: rgba(232,144,74,0.11);  --c4-fg:#f5c89a; --c4-bar:#e8904a;
+      --c5-bg: rgba(58,196,184,0.11);  --c5-fg:#8ee8e0; --c5-bar:#3ac4b8;
+      --c6-bg: rgba(224,96,128,0.11);  --c6-fg:#f0a0b8; --c6-bar:#e06080;
+      --c7-bg: rgba(140,180,100,0.11); --c7-fg:#b8e098; --c7-bar:#8cb464;
+
+      --font-display: 'Playfair Display', Georgia, serif;
+      --font-body:    'IBM Plex Sans',    sans-serif;
+      --font-mono:    'IBM Plex Mono',    monospace;
+      --radius:    12px;
+      --radius-sm:  6px;
+      --t: 0.22s cubic-bezier(.4,0,.2,1);
+    }
+
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    html { scroll-behavior:smooth; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--ink-950);
+      color: var(--white);
+      min-height: 100vh;
+      overflow-x: hidden;
+      animation:pageFadeIn .35s ease both;
+    }
+    @keyframes pageFadeIn{from{opacity:0}to{opacity:1}}
+
+    /* subtle grid texture */
+    body::before {
+      content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+      background:
+        radial-gradient(ellipse 90% 55% at 0%   0%,  rgba(31,58,104,0.28) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 45% at 100% 100%,rgba(200,150,42,0.06) 0%, transparent 55%),
+        repeating-linear-gradient(0deg,   transparent, transparent 59px, rgba(255,255,255,0.024) 60px),
+        repeating-linear-gradient(90deg,  transparent, transparent 59px, rgba(255,255,255,0.024) 60px);
+    }
+
+    .page { position:relative; z-index:1; max-width:1480px; margin:0 auto; padding:0 32px 100px; }
+
+    /* ─── TOP NAV ────────────────────────────────── */
+    .topnav {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:26px 0 0; margin-bottom:36px; gap:16px; flex-wrap:wrap;
+    }
+
+    .back-link {
+      display:inline-flex; align-items:center; gap:8px;
+      color:var(--slate-400); text-decoration:none;
+      font-size:13px; font-weight:500; letter-spacing:.03em;
+      transition:color var(--t);
+    }
+    .back-link:hover { color:var(--gold-300); }
+    .back-link svg { width:16px; height:16px; }
+
+    .nav-actions { display:flex; gap:8px; flex-wrap:wrap; }
+
+    /* ─── BUTTONS ────────────────────────────────── */
+    .btn {
+      display:inline-flex; align-items:center; gap:7px;
+      padding:9px 18px; border-radius:var(--radius-sm);
+      font-family:var(--font-body); font-size:13px; font-weight:500;
+      cursor:pointer; border:none; text-decoration:none;
+      transition:all var(--t); white-space:nowrap;
+    }
+    .btn svg { width:14px; height:14px; flex-shrink:0; }
+
+    .btn-ghost {
+      background:transparent;
+      border:1px solid rgba(240,192,96,0.2);
+      color:var(--gold-400);
+    }
+    .btn-ghost:hover { background:rgba(240,192,96,0.08); border-color:rgba(240,192,96,0.45); }
+
+    .btn-outline {
+      background:transparent;
+      border:1px solid rgba(255,255,255,0.1);
+      color:var(--slate-300);
+    }
+    .btn-outline:hover { background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.2); }
+
+    .btn-danger {
+      background:rgba(224,92,92,0.08);
+      border:1px solid rgba(224,92,92,0.22);
+      color:var(--red-400);
+    }
+    .btn-danger:hover { background:rgba(224,92,92,0.18); border-color:rgba(224,92,92,0.5); box-shadow:0 0 0 3px rgba(224,92,92,0.08); }
+
+    .btn-primary {
+      background:linear-gradient(135deg,var(--gold-400),var(--gold-300)); color:var(--ink-950);
+      border:1px solid transparent; font-weight:700;
+    }
+    .btn-primary:hover { background:linear-gradient(135deg,var(--gold-300),#fde090); transform:translateY(-1px); box-shadow:0 8px 24px rgba(240,192,96,0.3); }
+
+    /* ─── HERO HEADER ────────────────────────────────── */
+    .hero {
+      display:grid; grid-template-columns:1fr auto;
+      gap:32px; align-items:end;
+      padding:36px 40px 32px;
+      background:linear-gradient(135deg,var(--ink-900) 0%,rgba(17,31,56,0.95) 100%);
+      border:1px solid rgba(240,192,96,0.14);
+      border-radius:var(--radius);
+      margin-bottom:28px;
+      position:relative; overflow:hidden;
+      animation: fadeUp .45s ease both;
+      box-shadow:0 4px 32px rgba(0,0,0,0.25),0 1px 0 rgba(255,255,255,0.05) inset;
+    }
+
+    .hero::before {
+      content:''; position:absolute; top:0; left:0; right:0; height:3px;
+      background:linear-gradient(90deg, var(--gold-500), var(--gold-400) 50%, var(--gold-300));
+      background-size:200% 100%; animation:accentShimmer 4s ease infinite;
+    }
+    @keyframes accentShimmer{0%,100%{background-position:0% 0}50%{background-position:100% 0}}
+
+    .hero-bg-text {
+      position:absolute; right:40px; top:50%; transform:translateY(-50%);
+      font-family:var(--font-display); font-size:120px; font-weight:700;
+      color:rgba(240,192,96,0.03); line-height:1; pointer-events:none;
+      white-space:nowrap; z-index:0;
+    }
+
+    .hero-left { position:relative; z-index:1; }
+
+    .hero-eyebrow {
+      font-family:var(--font-mono); font-size:11px;
+      letter-spacing:.2em; text-transform:uppercase;
+      color:var(--gold-400); margin-bottom:10px;
+    }
+
+    .hero-title {
+      font-family:var(--font-display); font-size:clamp(24px,3vw,40px);
+      font-weight:700; line-height:1.15; color:var(--white);
+      margin-bottom:12px;
+    }
+
+    .hero-meta {
+      display:flex; gap:20px; flex-wrap:wrap; align-items:center;
+    }
+
+    .hero-chip {
+      display:inline-flex; align-items:center; gap:6px;
+      font-size:12px; color:var(--slate-400);
+    }
+    .hero-chip svg { width:13px; height:13px; color:var(--gold-500); }
+
+    .hero-right {
+      display:flex; flex-direction:column; gap:8px;
+      align-items:flex-end; position:relative; z-index:1;
+    }
+
+    /* ─── STATS STRIP ────────────────────────────────── */
+    .stats-strip {
+      display:grid; grid-template-columns:repeat(5,1fr);
+      gap:2px;
+      background:var(--ink-900);
+      border:1px solid rgba(240,192,96,0.12);
+      border-radius:var(--radius);
+      overflow:hidden;
+      margin-bottom:28px;
+      animation: fadeUp .45s .06s ease both;
+      box-shadow:0 1px 0 rgba(255,255,255,0.04) inset,0 4px 20px rgba(0,0,0,0.2);
+    }
+
+    .sstat {
+      padding:16px 20px;
+      display:flex; flex-direction:column; gap:4px;
+      border-right:1px solid rgba(240,192,96,0.06);
+      transition:background var(--t);
+    }
+    .sstat:last-child { border-right:none; }
+    .sstat:hover { background:rgba(31,58,104,0.3); }
+
+    .sstat-val {
+      font-family:var(--font-mono); font-size:28px;
+      font-weight:600; color:var(--gold-400); line-height:1; letter-spacing:-.02em;
+    }
+    .sstat-lbl {
+      font-size:10px; color:var(--slate-400);
+      text-transform:uppercase; letter-spacing:.12em;
+    }
+
+    /* ─── CONTROLS BAR ────────────────────────────────── */
+    .controls {
+      display:flex; gap:10px; align-items:center;
+      margin-bottom:24px; flex-wrap:wrap;
+      animation: fadeUp .45s .1s ease both;
+    }
+
+    .ctrl-select {
+      padding:9px 14px; padding-right:34px;
+      background:var(--ink-800);
+      border:1px solid rgba(240,192,96,0.1);
+      border-radius:var(--radius-sm);
+      color:var(--white); font-family:var(--font-body); font-size:13px;
+      outline:none; cursor:pointer; appearance:none;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%238fa3be' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat:no-repeat; background-position:right 11px center;
+      transition:border-color var(--t);
+    }
+    .ctrl-select:focus { border-color:rgba(240,192,96,0.35); }
+    .ctrl-select option { background:var(--ink-900); }
+
+    .view-toggle {
+      display:flex; gap:2px;
+      background:var(--ink-800);
+      border:1px solid rgba(240,192,96,0.1);
+      border-radius:var(--radius-sm);
+      padding:3px;
+    }
+
+    .vt-btn {
+      padding:6px 14px;
+      background:transparent; border:none;
+      border-radius:4px;
+      font-family:var(--font-body); font-size:12px; font-weight:500;
+      color:var(--slate-400); cursor:pointer;
+      transition:all var(--t);
+      display:flex; align-items:center; gap:6px;
+    }
+    .vt-btn svg { width:13px; height:13px; }
+    .vt-btn.active { background:rgba(240,192,96,0.12); color:var(--gold-300); }
+    .vt-btn:hover:not(.active) { color:var(--slate-200); }
+
+    .ctrl-spacer { flex:1; }
+
+    .active-filter-tag {
+      display:inline-flex; align-items:center; gap:6px;
+      padding:5px 12px;
+      background:rgba(240,192,96,0.1);
+      border:1px solid rgba(240,192,96,0.22);
+      border-radius:20px;
+      font-size:12px; color:var(--gold-300); font-family:var(--font-mono);
+    }
+    .active-filter-tag button {
+      background:none; border:none; color:var(--gold-400);
+      cursor:pointer; font-size:14px; line-height:1; padding:0;
+    }
+
+    /* ─── WEEK VIEW GRID ────────────────────────────────── */
+    .grid-wrap {
+      background:var(--ink-900);
+      border:1px solid rgba(240,192,96,0.12);
+      border-radius:var(--radius);
+      overflow:auto;
+      margin-bottom:32px;
+      animation: fadeUp .45s .15s ease both;
+      box-shadow:0 4px 24px rgba(0,0,0,0.2);
+    }
+
+    .tt-table {
+      border-collapse:collapse;
+      width:100%;
+      min-width:720px;
+    }
+
+    /* Header row */
+    .tt-table thead tr {
+      position:sticky; top:0; z-index:10;
+      background:var(--ink-900);
+    }
+
+    .tt-table th {
+      padding:14px 12px;
+      border-bottom:1px solid rgba(240,192,96,0.12);
+      border-right:1px solid rgba(240,192,96,0.06);
+      font-family:var(--font-mono); font-size:10px;
+      text-transform:uppercase; letter-spacing:.14em;
+      white-space:nowrap;
+    }
+    .tt-table th:last-child { border-right:none; }
+
+    .th-time {
+      color:var(--slate-500); text-align:center;
+      width:100px; background:rgba(240,192,96,0.02);
+    }
+
+    .th-day {
+      color:var(--gold-300); text-align:center; min-width:148px;
+    }
+
+    .th-day .day-name { font-size:11px; letter-spacing:.1em; }
+    .th-day .day-date { font-size:10px; color:var(--slate-400); margin-top:2px; font-weight:300; }
+
+    /* Body rows */
+    .tt-table tbody tr {
+      transition:background var(--t);
+    }
+    .tt-table tbody tr:hover { background:rgba(255,255,255,0.018); }
+
+    .tt-table td {
+      border-right:1px solid rgba(240,192,96,0.05);
+      border-bottom:1px solid rgba(240,192,96,0.05);
+      padding:0; vertical-align:top; height:72px;
+    }
+    .tt-table td:last-child { border-right:none; }
+
+    .td-time {
+      text-align:center; padding:0 10px;
+      vertical-align:middle;
+    }
+    .time-label {
+      font-family:var(--font-mono); font-size:11px;
+      color:var(--slate-400);
+      background:rgba(240,192,96,0.02);
+      height:100%; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; gap:2px;
+      padding:8px 6px;
+    }
+    .time-start { font-size:12px; font-weight:500; color:var(--slate-300); }
+    .time-end   { font-size:10px; color:var(--slate-500); }
+
+    /* Slot block */
+    .slot {
+      height:72px; padding:9px 11px;
+      display:flex; flex-direction:column; justify-content:center;
+      gap:3px; cursor:default;
+      transition:filter var(--t), transform var(--t);
+      position:relative; overflow:hidden;
+    }
+
+    .slot::after {
+      content:''; position:absolute; inset:0;
+      background:linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 60%);
+      pointer-events:none;
+    }
+
+    .slot:hover { filter:brightness(1.12); transform:scale(1.01); z-index:2; }
+
+    .slot-subject {
+      font-weight:700; font-size:12px; line-height:1.3;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .slot-teacher {
+      font-size:10px; font-family:var(--font-mono);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+      opacity:.8;
+    }
+    .slot-branch {
+      font-size:10px; opacity:.65;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .slot-type {
+      position:absolute; top:7px; right:8px;
+      font-size:8px; font-family:var(--font-mono);
+      text-transform:uppercase; letter-spacing:.06em;
+      padding:2px 6px; border-radius:8px;
+      background:rgba(0,0,0,0.22);
+      opacity:.85;
+    }
+
+    /* dimmed when filtered */
+    .slot.dimmed { opacity:.18; filter:saturate(.2); }
+    .slot.highlighted { box-shadow:0 0 0 2px rgba(240,192,96,0.5) inset; }
+
+    .empty-slot {
+      height:72px; background:transparent;
+    }
+
+    /* break row */
+    .break-row td { background:rgba(240,192,96,0.025); height:40px !important; }
+    .break-label {
+      font-family:var(--font-mono); font-size:10px;
+      color:rgba(240,192,96,0.3); letter-spacing:.12em;
+      text-transform:uppercase; text-align:center;
+      display:flex; align-items:center; justify-content:center;
+      height:40px;
+    }
+
+    /* color classes */
+    .c0 { background:var(--c0-bg); color:var(--c0-fg); border-left:3px solid var(--c0-bar); box-shadow:inset 3px 0 0 rgba(91,163,217,0.2); }
+    .c1 { background:var(--c1-bg); color:var(--c1-fg); border-left:3px solid var(--c1-bar); box-shadow:inset 3px 0 0 rgba(78,201,148,0.2); }
+    .c2 { background:var(--c2-bg); color:var(--c2-fg); border-left:3px solid var(--c2-bar); box-shadow:inset 3px 0 0 rgba(240,192,96,0.2); }
+    .c3 { background:var(--c3-bg); color:var(--c3-fg); border-left:3px solid var(--c3-bar); box-shadow:inset 3px 0 0 rgba(155,121,212,0.2); }
+    .c4 { background:var(--c4-bg); color:var(--c4-fg); border-left:3px solid var(--c4-bar); box-shadow:inset 3px 0 0 rgba(232,144,74,0.2); }
+    .c5 { background:var(--c5-bg); color:var(--c5-fg); border-left:3px solid var(--c5-bar); box-shadow:inset 3px 0 0 rgba(58,196,184,0.2); }
+    .c6 { background:var(--c6-bg); color:var(--c6-fg); border-left:3px solid var(--c6-bar); box-shadow:inset 3px 0 0 rgba(224,96,128,0.2); }
+    .c7 { background:var(--c7-bg); color:var(--c7-fg); border-left:3px solid var(--c7-bar); box-shadow:inset 3px 0 0 rgba(140,180,100,0.2); }
+
+    /* ─── DAY VIEW ────────────────────────────────── */
+    .day-view {
+      display:none;
+      gap:16px;
+      margin-bottom:32px;
+      animation: fadeUp .3s ease both;
+    }
+    .day-view.visible { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); }
+
+    .day-column {
+      background:var(--ink-900);
+      border:1px solid rgba(240,192,96,0.1);
+      border-radius:var(--radius);
+      overflow:hidden;
+    }
+
+    .day-col-header {
+      padding:14px 16px;
+      background:rgba(240,192,96,0.05);
+      border-bottom:1px solid rgba(240,192,96,0.1);
+      font-family:var(--font-mono); font-size:11px;
+      text-transform:uppercase; letter-spacing:.12em;
+      color:var(--gold-300);
+    }
+
+    .day-col-slots { padding:10px; display:flex; flex-direction:column; gap:8px; }
+
+    .day-slot-card {
+      padding:11px 13px;
+      border-radius:var(--radius-sm);
+      display:flex; flex-direction:column; gap:4px;
+      cursor:default; transition:filter var(--t);
+    }
+    .day-slot-card:hover { filter:brightness(1.12); }
+
+    .dsc-time {
+      font-family:var(--font-mono); font-size:10px; opacity:.7;
+    }
+    .dsc-subject { font-weight:600; font-size:13px; }
+    .dsc-meta {
+      font-size:11px; opacity:.75;
+      display:flex; justify-content:space-between;
+    }
+    .dsc-badge {
+      font-size:9px; font-family:var(--font-mono);
+      text-transform:uppercase; letter-spacing:.05em;
+      padding:2px 7px; border-radius:8px;
+      background:rgba(0,0,0,0.22); display:inline-block;
+      margin-top:2px;
+    }
+
+    .day-col-empty {
+      padding:24px 16px; text-align:center;
+      font-size:12px; color:var(--slate-500); font-style:italic;
+    }
+
+    /* ─── LEGEND + TEACHER ROSTER ─────────────── */
+    .bottom-section {
+      display:grid; grid-template-columns:1fr 2fr;
+      gap:24px; margin-bottom:32px;
+      animation: fadeUp .45s .2s ease both;
+    }
+
+    .panel {
+      background:var(--ink-900);
+      border:1px solid rgba(240,192,96,0.12);
+      border-radius:var(--radius);
+      overflow:hidden;
+      box-shadow:0 1px 0 rgba(255,255,255,0.04) inset;
+    }
+
+    .panel-head {
+      padding:14px 20px;
+      background:rgba(240,192,96,0.04);
+      border-bottom:1px solid rgba(240,192,96,0.08);
+      font-family:var(--font-mono); font-size:10px;
+      text-transform:uppercase; letter-spacing:.16em;
+      color:var(--gold-400);
+    }
+
+    .panel-body { padding:16px 20px; }
+
+    /* Legend */
+    .legend-list { display:flex; flex-direction:column; gap:10px; }
+
+    .legend-row {
+      display:flex; align-items:center; gap:12px;
+      cursor:pointer; padding:8px 10px;
+      border-radius:var(--radius-sm);
+      transition:background var(--t);
+    }
+    .legend-row:hover { background:rgba(255,255,255,0.04); }
+    .legend-row.active-filter { background:rgba(240,192,96,0.07); }
+
+    .legend-swatch {
+      width:12px; height:36px;
+      border-radius:3px; flex-shrink:0;
+    }
+
+    .legend-info { flex:1; }
+    .legend-branch { font-size:13px; font-weight:500; color:var(--white); }
+    .legend-teachers { font-size:11px; color:var(--slate-400); margin-top:2px; }
+
+    .legend-count {
+      font-family:var(--font-mono); font-size:12px; color:var(--slate-400);
+    }
+
+    /* Teacher roster table */
+    .roster-table { width:100%; border-collapse:collapse; }
+
+    .roster-table th {
+      padding:8px 14px;
+      font-size:10px; font-family:var(--font-mono);
+      text-transform:uppercase; letter-spacing:.12em;
+      color:var(--gold-400); text-align:left;
+      border-bottom:1px solid rgba(240,192,96,0.08);
+    }
+
+    .roster-table td {
+      padding:11px 14px;
+      font-size:13px;
+      border-bottom:1px solid rgba(240,192,96,0.05);
+      vertical-align:middle;
+    }
+    .roster-table tr:last-child td { border-bottom:none; }
+    .roster-table tr:hover td { background:rgba(255,255,255,0.02); }
+
+    .teacher-avatar {
+      width:30px; height:30px; border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+      font-size:12px; font-weight:600;
+      flex-shrink:0;
+    }
+
+    .roster-name-cell { display:flex; align-items:center; gap:10px; }
+
+    .roster-subject { color:var(--slate-300); }
+    .roster-branch {
+      display:inline-flex; align-items:center; gap:4px;
+      font-size:11px; font-family:var(--font-mono); color:var(--slate-400);
+    }
+
+    .roster-slots {
+      font-family:var(--font-mono); font-size:12px; color:var(--slate-300);
+    }
+
+    .roster-types { display:flex; gap:5px; }
+    .type-chip {
+      font-size:10px; font-family:var(--font-mono); padding:2px 8px;
+      border-radius:10px; text-transform:uppercase; letter-spacing:.04em;
+    }
+    .type-lec { background:rgba(91,163,217,0.15); color:#8cc8f0; border:1px solid rgba(91,163,217,0.2); }
+    .type-lab { background:rgba(78,201,148,0.12); color:#80d8b0; border:1px solid rgba(78,201,148,0.2); }
+
+    /* ─── MODAL ────────────────────────────────── */
+    .modal-overlay {
+      position:fixed; inset:0; z-index:1000;
+      background:rgba(6,9,14,0.82); backdrop-filter:blur(6px);
+      display:flex; align-items:center; justify-content:center;
+      opacity:0; pointer-events:none; transition:opacity .2s ease;
+    }
+    .modal-overlay.active { opacity:1; pointer-events:all; }
+    .modal {
+      background:var(--ink-800);
+      border:1px solid rgba(240,192,96,0.16);
+      border-radius:var(--radius);
+      padding:36px; width:100%; max-width:440px;
+      transform:scale(.96); transition:transform .2s ease;
+    }
+    .modal-overlay.active .modal { transform:scale(1); }
+    .modal-title { font-family:var(--font-display); font-size:22px; color:var(--white); margin-bottom:12px; }
+    .modal-text  { font-size:14px; color:var(--slate-300); line-height:1.7; margin-bottom:28px; }
+    .modal-text strong { color:var(--gold-300); }
+    .modal-row   { display:flex; gap:10px; justify-content:flex-end; }
+    .btn-cancel  { padding:10px 20px; background:transparent; border:1px solid rgba(255,255,255,0.1); border-radius:var(--radius-sm); color:var(--slate-300); font-family:var(--font-body); font-size:14px; cursor:pointer; transition:all var(--t); }
+    .btn-cancel:hover { background:rgba(255,255,255,0.05); }
+    .btn-del-confirm { padding:10px 24px; background:var(--red-400); border:none; border-radius:var(--radius-sm); color:#fff; font-family:var(--font-body); font-weight:600; font-size:14px; cursor:pointer; transition:all var(--t); }
+    .btn-del-confirm:hover { background:#cc4444; }
+
+    /* ─── SLOT TOOLTIP ────────────────────────────────── */
+    .tooltip {
+      position:fixed; z-index:500;
+      background:var(--ink-700);
+      border:1px solid rgba(240,192,96,0.2);
+      border-radius:var(--radius-sm);
+      padding:12px 16px;
+      min-width:180px; max-width:260px;
+      box-shadow:0 12px 32px rgba(0,0,0,0.5);
+      pointer-events:none;
+      display:none;
+    }
+    .tooltip.visible { display:block; }
+    .tt-subject { font-weight:600; font-size:14px; color:var(--white); margin-bottom:8px; }
+    .tt-row { display:flex; gap:8px; align-items:center; font-size:12px; color:var(--slate-300); margin-bottom:4px; }
+    .tt-row svg { width:12px; height:12px; color:var(--gold-500); flex-shrink:0; }
+    .tt-badge { display:inline-block; margin-top:6px; font-size:10px; font-family:var(--font-mono); text-transform:uppercase; letter-spacing:.06em; padding:2px 8px; border-radius:8px; background:rgba(240,192,96,0.12); color:var(--gold-300); }
+
+    /* ─── LOADING ────────────────────────────────── */
+    .loading-screen {
+      position:fixed; inset:0; z-index:9999;
+      background:var(--ink-950);
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:20px;
+    }
+
+    .loading-spinner {
+      width:40px; height:40px;
+      border:2px solid rgba(240,192,96,0.12);
+      border-top-color:var(--gold-400);
+      border-radius:50%;
+      animation:spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    .loading-text {
+      font-family:var(--font-mono); font-size:12px;
+      letter-spacing:.15em; text-transform:uppercase; color:var(--slate-400);
+    }
+
+    /* ─── ERROR STATE ─────────────────────────── */
+    .error-screen {
+      display:none;
+      flex-direction:column; align-items:center; justify-content:center;
+      min-height:60vh; text-align:center; gap:16px;
+      padding:40px;
+    }
+    .error-screen.visible { display:flex; }
+    .error-icon { font-size:48px; opacity:.4; }
+    .error-title { font-family:var(--font-display); font-size:24px; color:var(--slate-300); }
+    .error-msg { font-size:14px; color:var(--slate-400); max-width:360px; line-height:1.6; }
+
+    /* ─── TOAST ────────────────────────────────── */
+    .toast-c { position:fixed; bottom:32px; right:32px; z-index:9999; display:flex; flex-direction:column; gap:10px; }
+    .toast { display:flex; align-items:center; gap:12px; padding:13px 18px; background:var(--ink-800); border-radius:var(--radius-sm); font-size:13px; min-width:240px; box-shadow:0 8px 28px rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.07); animation:toastIn .3s ease; }
+    .toast.s { border-left:3px solid var(--green-400); }
+    .toast.e { border-left:3px solid var(--red-400); }
+    .toast.i { border-left:3px solid var(--blue-400); }
+    @keyframes toastIn { from{opacity:0;transform:translateX(20px) scale(.96)} to{opacity:1;transform:translateX(0) scale(1)} }
+
+    /* ─── ANIMATIONS ────────────────────────────────── */
+    @keyframes fadeUp { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
+
+    /* ─── KEYBOARD HINT ─────────────────────────────── */
+    .kb-hint{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px 0 0;font-size:11px;color:var(--slate-500);font-family:var(--font-mono);}
+    .kb-key{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:20px;padding:0 5px;background:var(--ink-800);border:1px solid rgba(255,255,255,0.1);border-bottom:2px solid rgba(255,255,255,0.06);border-radius:4px;font-size:10px;color:var(--slate-400);}
+
+    /* ─── WORKLOAD PANEL ─────────────────────────────── */
+    .workload-panel{
+      background:var(--ink-900);border:1px solid rgba(240,192,96,0.1);
+      border-radius:var(--radius);padding:16px 20px;margin-bottom:28px;
+      animation:fadeUp .45s .25s ease both;
+    }
+    .wp-head{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:var(--gold-400);margin-bottom:14px;}
+    .wp-rows{display:flex;flex-direction:column;gap:8px;}
+    .wp-row{display:flex;align-items:center;gap:12px;}
+    .wp-name{font-size:12px;color:var(--slate-300);width:150px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .wp-bar-wrap{flex:1;height:5px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;}
+    .wp-bar{height:100%;border-radius:3px;transition:width .6s cubic-bezier(.4,0,.2,1);}
+    .wp-hrs{font-family:var(--font-mono);font-size:11px;color:var(--slate-400);width:56px;text-align:right;flex-shrink:0;}
+
+    /* ─── GENERATION META ─────────────────────────────── */
+    .gen-meta{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:10px;color:var(--slate-400);margin-top:4px;}
+    .gen-meta-dot{width:5px;height:5px;border-radius:50%;background:var(--green-400);box-shadow:0 0 5px var(--green-400);}
+
+    /* ─── PRINT STYLES ────────────────────────────────── */
+    @media print {
+      body { background:#fff; color:#111; }
+      body::before, .topnav, .controls, .nav-actions, .btn, .bottom-section, .toast-c, .modal-overlay, .tooltip, .loading-screen { display:none !important; }
+      .page { padding:0; max-width:100%; }
+      .hero { background:#f5f0e8; border:1px solid #ccc; color:#111; }
+      .hero-title, .hero-eyebrow, .sstat-val { color:#111 !important; }
+      .hero-bg-text { display:none; }
+      .grid-wrap { border:1px solid #ccc; overflow:visible; }
+      .stats-strip { background:#f5f0e8; border:1px solid #ccc; }
+      .tt-table th { background:#ede8dc !important; color:#333 !important; }
+      .slot-subject { color:#111 !important; }
+      .slot-teacher { color:#444 !important; }
+    }
+
+    /* ─── RESPONSIVE ────────────────────────────────── */
+    @media (max-width:900px) {
+      .page { padding:0 16px 80px; }
+      .hero { grid-template-columns:1fr; }
+      .hero-right { align-items:flex-start; flex-direction:row; }
+      .stats-strip { grid-template-columns:repeat(3,1fr); }
+      .bottom-section { grid-template-columns:1fr; }
+    }
+    @media (max-width:600px) {
+      .stats-strip { grid-template-columns:1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="loading-screen" id="loadingScreen">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Loading timetable…</div>
+</div>
+
+<div class="error-screen" id="errorScreen">
+  <div class="error-icon">📋</div>
+  <div class="error-title">Timetable Not Found</div>
+  <p class="error-msg" id="errorMsg">Could not load timetable data. It may have been deleted or the backend is offline.</p>
+  <a href="index.html" class="btn btn-ghost" style="margin-top:8px">← Back to All Timetables</a>
+</div>
+
+<div class="page" id="mainPage" style="display:none">
+
+  
+  <nav class="topnav">
+    <a href="index.html" class="back-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+      All Timetables
+    </a>
+    <div class="nav-actions">
+      <a class="btn btn-outline" id="editBtn" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Edit
+      </a>
+      <button class="btn btn-outline" onclick="window.print()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Print
+      </button>
+      <button class="btn btn-ghost" id="exportBtn" onclick="exportCSV()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        CSV
+      </button>
+      <button class="btn btn-ghost" id="pdfBtn" onclick="exportPDF()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        PDF
+      </button>
+      <button class="btn btn-ghost" id="icalBtn" onclick="exportIcal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        iCal
+      </button>
+      <button class="btn btn-outline" id="regenBtn" onclick="regenerateTimetable()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+        Regenerate
+      </button>
+      <button class="btn btn-danger" onclick="openDeleteModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+        Delete
+      </button>
+    </div>
+  </nav>
+
+  
+  <div class="hero" id="hero">
+    <div class="hero-bg-text" id="heroBgText">TT</div>
+    <div class="hero-left">
+      <div class="hero-eyebrow">✦ Timetable Details</div>
+      <h1 class="hero-title" id="heroTitle">Loading…</h1>
+      <div class="hero-meta">
+        <span class="hero-chip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          <span id="heroSemester">—</span>
+        </span>
+        <span class="hero-chip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+          <span id="heroDept">—</span>
+        </span>
+        <span class="hero-chip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span id="heroDate">—</span>
+        </span>
+      </div>
+    </div>
+    <div class="hero-right">
+      <span style="font-family:var(--font-mono);font-size:11px;color:var(--slate-400)" id="heroId">—</span>
+    </div>
+  </div>
+
+  
+  <div class="stats-strip">
+    <div class="sstat">
+      <div class="sstat-val" id="statTeachers">0</div>
+      <div class="sstat-lbl">Teachers</div>
+    </div>
+    <div class="sstat">
+      <div class="sstat-val" id="statSlots">0</div>
+      <div class="sstat-lbl">Total Slots</div>
+    </div>
+    <div class="sstat">
+      <div class="sstat-val" id="statLectures">0</div>
+      <div class="sstat-lbl">Lectures</div>
+    </div>
+    <div class="sstat">
+      <div class="sstat-val" id="statLabs">0</div>
+      <div class="sstat-lbl">Labs</div>
+    </div>
+    <div class="sstat">
+      <div class="sstat-val" id="statDays">0</div>
+      <div class="sstat-lbl">Days Used</div>
+    </div>
+  </div>
+
+  
+  <div class="controls" id="controlsBar">
+    <select class="ctrl-select" id="filterTeacher" onchange="applyFilters()">
+      <option value="">All Teachers</option>
+    </select>
+    <select class="ctrl-select" id="filterBranch" onchange="applyFilters()">
+      <option value="">All Branches</option>
+    </select>
+    <select class="ctrl-select" id="filterType" onchange="applyFilters()">
+      <option value="">All Types</option>
+      <option value="lecture">Lectures Only</option>
+      <option value="lab">Labs Only</option>
+    </select>
+    <div id="activeFilterTags"></div>
+    <div class="ctrl-spacer"></div>
+    <div class="view-toggle">
+      <button class="vt-btn active" id="vt-week" onclick="setView('week')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        Week
+      </button>
+      <button class="vt-btn" id="vt-day" onclick="setView('day')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        Day
+      </button>
+    </div>
+  </div>
+  <div class="kb-hint">
+    <span class="kb-key">W</span>week &nbsp;
+    <span class="kb-key">D</span>day &nbsp;
+    <span class="kb-key">←</span><span class="kb-key">→</span>navigate days &nbsp;
+    <span class="kb-key">↑</span><span class="kb-key">↓</span>scroll &nbsp;
+    <span class="kb-key">P</span>print
+  </div>
+
+  
+  <div class="grid-wrap" id="weekView">
+    <table class="tt-table" id="ttTable"></table>
+  </div>
+
+  
+  <div class="day-view" id="dayView"></div>
+
+  
+  <div class="workload-panel" id="workloadPanel">
+    <div class="wp-head">Weekly Teacher Workload</div>
+    <div class="wp-rows" id="wpRows"></div>
+  </div>
+
+  
+  <div class="bottom-section">
+    
+    <div class="panel">
+      <div class="panel-head">Branch Legend</div>
+      <div class="panel-body">
+        <div class="legend-list" id="legendList"></div>
+      </div>
+    </div>
+
+    
+    <div class="panel">
+      <div class="panel-head">Teacher Roster</div>
+      <div class="panel-body" style="padding:0">
+        <table class="roster-table">
+          <thead>
+            <tr>
+              <th>Teacher</th>
+              <th>Branch</th>
+              <th>Subject</th>
+              <th>Slots</th>
+              <th>Types</th>
+            </tr>
+          </thead>
+          <tbody id="rosterBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="modal-overlay" id="delModal">
+  <div class="modal">
+    <div class="modal-title">Delete this Timetable?</div>
+    <p class="modal-text">You are about to permanently delete <strong id="delModalName"></strong>. All teachers, subjects, and scheduled slots will be removed. This cannot be undone.</p>
+    <div class="modal-row">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-del-confirm" id="delConfirmBtn">Yes, Delete</button>
+    </div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip">
+  <div class="tt-subject" id="tt-subject"></div>
+  <div class="tt-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span id="tt-teacher"></span></div>
+  <div class="tt-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><span id="tt-branch"></span></div>
+  <div class="tt-row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span id="tt-time"></span></div>
+  <div><span class="tt-badge" id="tt-type"></span></div>
+</div>
+
+<div class="toast-c" id="toastC"></div>
+
+<script>
+const API = API_BASE;
+
+const DAY_ORDER = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
+const PALETTE   = ['c0','c1','c2','c3','c4','c5','c6','c7'];
+const P_COLORS  = ['#5ba3d9','#4ec994','#f0c060','#9b79d4','#e8904a','#3ac4b8','#e06080','#8cb464'];
+
+let timetable = null;
+let branchColor = {};
+let currentView = 'week';
+let activeTeacher = '';
+let activeBranch  = '';
+let activeType    = '';
+
+window.addEventListener('DOMContentLoaded', () => {
+  renderAuthBar('.topnav');
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get('id');
+  if (!id) { showError('No timetable ID in URL. Use ?id=1 to specify a timetable.'); return; }
+  loadTimetable(parseInt(id));
+  setupTooltip();
+});
+
+async function loadTimetable(id) {
+  const editBtn = document.getElementById('editBtn');
+  if (editBtn) editBtn.href = `edit.html?id=${id}`;
+
+  try {
+    const res = await fetch(`${API}/timetables/${id}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error);
+    timetable = json.data;
+  } catch (e) {
+    showError(`Could not load timetable. Make sure the backend is running (python app.py).\n\nDetail: ${e.message}`);
+    return;
+  }
+  init();
+}
+
+function init() {
+  document.title = `${timetable.name} — AI Timetable Planner`;
+
+  // Role-based nav button visibility
+  const editBtn   = document.getElementById('editBtn');
+  const regenBtn  = document.getElementById('regenBtn');
+  const deleteBtn = document.querySelector('.btn-danger');
+
+  if (!isHead()) {
+    if (editBtn)   editBtn.style.display   = 'none';
+    if (regenBtn)  regenBtn.style.display  = 'none';
+    if (deleteBtn) deleteBtn.style.display = 'none';
+  }
+
+  assignBranchColors();
+  renderHero();
+  renderStats();
+  renderWorkload();
+  populateFilters();
+  renderWeekView();
+  renderDayView();
+  renderLegend();
+  renderRoster();
+  hide('loadingScreen');
+  show('mainPage');
+}
+
+function assignBranchColors() {
+  const branches = [...new Set(timetable.slots.map(s => s.branch_name))];
+  branches.forEach((b, i) => { branchColor[b] = PALETTE[i % PALETTE.length]; });
+}
+
+function renderHero() {
+  const t = timetable;
+  document.getElementById('heroTitle').textContent    = t.name;
+  document.getElementById('heroBgText').textContent   = t.department || t.name.split(' ')[0];
+  document.getElementById('heroSemester').textContent = t.semester || '—';
+  document.getElementById('heroDept').textContent     = t.department || '—';
+  document.getElementById('heroDate').textContent     = fmtDate(t.created_at);
+  document.getElementById('delModalName').textContent = `"${t.name}"`;
+  document.getElementById('exportBtn').onclick = exportCSV;
+
+  const slots = t.slots || [];
+  const lec   = slots.filter(s => s.type === 'lecture').length;
+  const lab   = slots.filter(s => s.type === 'lab').length;
+  const idEl  = document.getElementById('heroId');
+  idEl.innerHTML = `
+    <span style="opacity:.5;font-size:11px">#${String(t.id).padStart(4,'0')}</span>
+    <span class="gen-meta" style="margin-left:10px">
+      <span class="gen-meta-dot"></span>
+      ${slots.length} slots · ${lec}L ${lab}P · ${t.teachers?.length||0} teachers
+    </span>`;
+}
+
+function renderWorkload() {
+  const teachers = timetable.teachers || [];
+  const slots    = timetable.slots    || [];
+  if (!teachers.length) return;
+
+  const barColors = ['#5ba3d9','#4ec994','#f0c060','#9b79d4','#e8904a','#3ac4b8','#e06080','#8cb464'];
+
+  // Group by unique teacher_name — sum hours across all subjects they teach
+  const seen = new Map();
+  teachers.forEach((t, i) => {
+    if (!seen.has(t.teacher_name)) {
+      seen.set(t.teacher_name, { name: t.teacher_name, lec: 0, lab: 0, colorIdx: i });
+    }
+  });
+  slots.forEach(s => {
+    if (seen.has(s.teacher_name)) {
+      const e = seen.get(s.teacher_name);
+      if (s.type === 'lecture') e.lec++; else e.lab++;
+    }
+  });
+
+  const rows = [...seen.values()];
+  const maxHrs = Math.max(...rows.map(r => r.lec + r.lab), 1);
+
+  document.getElementById('wpRows').innerHTML = rows.map(r => `
+    <div class="wp-row">
+      <div class="wp-name" title="${esc(r.name)}">${esc(r.name)}</div>
+      <div class="wp-bar-wrap">
+        <div class="wp-bar" style="width:${((r.lec+r.lab)/maxHrs*100).toFixed(1)}%;background:${barColors[r.colorIdx % barColors.length]}"></div>
+      </div>
+      <div class="wp-hrs">${r.lec}L ${r.lab}P</div>
+    </div>`).join('');
+}
+
+function renderStats() {
+  const slots = timetable.slots;
+  const lectures = slots.filter(s => s.type === 'lecture').length;
+  const labs     = slots.filter(s => s.type === 'lab').length;
+  const days     = new Set(slots.map(s => s.day)).size;
+
+  anim('statTeachers', timetable.teachers.length);
+  anim('statSlots',    slots.length);
+  anim('statLectures', lectures);
+  anim('statLabs',     labs);
+  anim('statDays',     days);
+}
+
+function anim(id, target) {
+  const el = document.getElementById(id);
+  let n = 0, step = Math.max(1, Math.ceil(target / 25));
+  const iv = setInterval(() => {
+    n = Math.min(n + step, target);
+    el.textContent = n;
+    if (n >= target) clearInterval(iv);
+  }, 35);
+}
+
+function populateFilters() {
+  const teachers = [...new Set(timetable.teachers.map(t => t.teacher_name))];
+  const branches = [...new Set(timetable.teachers.map(t => t.branch_name))];
+  const sel = (id, items) => {
+    const el = document.getElementById(id);
+    items.forEach(v => {
+      const o = document.createElement('option'); o.value = v; o.textContent = v;
+      el.appendChild(o);
+    });
+  };
+  sel('filterTeacher', teachers);
+  sel('filterBranch',  branches);
+}
+
+function applyFilters() {
+  activeTeacher = document.getElementById('filterTeacher').value;
+  activeBranch  = document.getElementById('filterBranch').value;
+  activeType    = document.getElementById('filterType').value;
+
+  const container = document.getElementById('activeFilterTags');
+  const tags = [];
+  if (activeTeacher) tags.push({ label: activeTeacher, clear: () => { document.getElementById('filterTeacher').value=''; applyFilters(); }});
+  if (activeBranch)  tags.push({ label: activeBranch,  clear: () => { document.getElementById('filterBranch').value='';  applyFilters(); }});
+  if (activeType)    tags.push({ label: activeType,    clear: () => { document.getElementById('filterType').value='';    applyFilters(); }});
+
+  container.innerHTML = tags.map((t, i) => `
+    <span class="active-filter-tag">
+      ${esc(t.label)}
+      <button onclick="clearFilter(${i})" title="Remove filter">×</button>
+    </span>`).join('');
+  container._clearFns = tags.map(t => t.clear);
+
+  document.querySelectorAll('.slot').forEach(el => {
+    const t = el.dataset.teacher, b = el.dataset.branch, tp = el.dataset.type;
+    const match =
+      (!activeTeacher || t === activeTeacher) &&
+      (!activeBranch  || b === activeBranch)  &&
+      (!activeType    || tp === activeType);
+    el.classList.toggle('dimmed',      !match);
+    el.classList.toggle('highlighted', match && (activeTeacher || activeBranch || activeType));
+  });
+}
+
+function clearFilter(i) {
+  const fns = document.getElementById('activeFilterTags')._clearFns || [];
+  if (fns[i]) fns[i]();
+}
+
+function renderWeekView() {
+  const slots = timetable.slots;
+  const days  = DAY_ORDER.filter(d => slots.some(s => s.day === d));
+
+  const timeSet = new Set(slots.map(s => s.time_slot));
+  const times   = [...timeSet].sort((a,b) => parseInt(a) - parseInt(b));
+
+  const lkp = {};
+  slots.forEach(s => {
+    (lkp[s.day] ??= {})[s.time_slot] ??= [];
+    lkp[s.day][s.time_slot].push(s);
+  });
+
+  // ── Compute rowspans for consecutive identical slots (multi-hour labs) ──
+  // A lab of length N is stored as N separate 1-hour slot entries with the
+  // same subject+teacher+type.  We detect consecutive chains per day and
+  // merge them visually using <td rowspan=N> — exactly like the physical
+  // timetable where "DSC LAB 9:00-11:00" is shown as a single merged cell.
+  const skipCell  = new Set();   // "day|tidx" → skip this cell (covered by rowspan above)
+  const rowspanAt = {};          // "day|tidx" → {span, endTime}
+
+  function tsEnd(ts)   { return parseInt((ts.split('-')[1] || '').split(':')[0] || 0); }
+  function tsStart(ts) { return parseInt(ts.split(':')[0]); }
+
+  days.forEach(day => {
+    for (let i = 0; i < times.length; i++) {
+      const ck = `${day}|${i}`;
+      if (skipCell.has(ck)) continue;
+      const base = lkp[day]?.[times[i]]?.[0];
+      if (!base) continue;
+
+      let span = 1;
+      for (let j = i + 1; j < times.length; j++) {
+        // Only merge if hours are truly consecutive (no lunch gap between them)
+        if (tsStart(times[j]) !== tsEnd(times[j - 1])) break;
+        const next = lkp[day]?.[times[j]]?.[0];
+        if (!next) break;
+        if (next.subject_name === base.subject_name &&
+            next.teacher_name === base.teacher_name &&
+            next.type         === base.type) {
+          span++;
+          skipCell.add(`${day}|${j}`);
+        } else {
+          break;
+        }
+      }
+      if (span > 1) {
+        rowspanAt[ck] = { span, endTime: times[i + span - 1] };
+      }
+    }
+  });
+
+  // ── Render ───────────────────────────────────────────────────────────────
+  let html = `<thead><tr>
+    <th class="th-time">Time</th>
+    ${days.map(d => `<th class="th-day"><div class="day-name">${d}</div></th>`).join('')}
+  </tr></thead><tbody>`;
+
+  let prevEnd = null;
+
+  times.forEach((time, tidx) => {
+    const startH = parseInt(time.split(':')[0]);
+    const isAfternoon = startH >= 14;
+
+    if (startH === 14 && prevEnd && prevEnd <= 13) {
+      html += `<tr class="break-row">
+        <td><div class="break-label">Lunch Break</div></td>
+        ${days.map(() => `<td class="break-row"><div class="break-label" style="opacity:.25">· · ·</div></td>`).join('')}
+      </tr>`;
+    }
+    prevEnd = startH + 1;
+
+    const rowStyle = isAfternoon ? ' style="background:rgba(240,192,96,0.012)"' : '';
+
+    html += `<tr${rowStyle}><td class="td-time">
+      <div class="time-label">
+        <span class="time-start">${time.split('-')[0]}</span>
+        <span class="time-end">${time.split('-')[1] || ''}</span>
+        ${startH === 9  ? '<span style="font-size:8px;color:rgba(91,163,217,0.5);margin-top:2px">AM</span>' : ''}
+        ${startH === 14 ? '<span style="font-size:8px;color:rgba(240,192,96,0.5);margin-top:2px">PM</span>' : ''}
+      </div>
+    </td>`;
+
+    days.forEach((day, _didx) => {
+      const ck = `${day}|${tidx}`;
+
+      // This cell is covered by a rowspan from a previous row — omit entirely
+      if (skipCell.has(ck)) return;
+
+      const cellSlots = lkp[day]?.[time] || [];
+      const rsInfo    = rowspanAt[ck];
+      const rsAttr    = rsInfo ? ` rowspan="${rsInfo.span}"` : '';
+      const cellH     = rsInfo ? rsInfo.span * 72 : 72;
+
+      // For merged blocks show the full time range in the tooltip / sub-label
+      const displayTime = rsInfo
+        ? `${time.split('-')[0]}–${rsInfo.endTime.split('-')[1]}`
+        : time;
+
+      if (cellSlots.length === 0) {
+        html += `<td${rsAttr}><div class="empty-slot"
+          style="display:flex;align-items:center;justify-content:center;
+                 height:${cellH}px;color:rgba(255,255,255,0.06);
+                 font-size:18px;letter-spacing:4px">···</div></td>`;
+      } else {
+        const s   = cellSlots[0];
+        const cls = branchColor[s.branch_name] || 'c0';
+        html += `<td${rsAttr}>
+          <div class="slot ${cls}"
+               style="height:${cellH}px;"
+               data-teacher="${esc(s.teacher_name)}"
+               data-branch="${esc(s.branch_name)}"
+               data-type="${esc(s.type)}"
+               data-subject="${esc(s.subject_name)}"
+               data-time="${esc(displayTime)}"
+               onmouseenter="showTooltip(event,this)"
+               onmouseleave="hideTooltip()">
+            <div class="slot-subject">${esc(s.subject_name)}</div>
+            <div class="slot-teacher">${esc(s.teacher_name)}</div>
+            ${rsInfo ? `<div style="font-size:10px;opacity:.6;margin-top:2px;font-family:var(--font-mono)">${displayTime}</div>` : ''}
+            <span class="slot-type">${s.type}</span>
+          </div>
+        </td>`;
+      }
+    });
+
+    html += `</tr>`;
+  });
+
+  html += '</tbody>';
+  document.getElementById('ttTable').innerHTML = html;
+}
+
+function renderDayView() {
+  const slots = timetable.slots;
+  const days  = DAY_ORDER.filter(d => slots.some(s => s.day === d));
+
+  function tsEnd(ts)   { return parseInt((ts.split('-')[1] || '').split(':')[0] || 0); }
+  function tsStart(ts) { return parseInt(ts.split(':')[0]); }
+
+  const html = days.map(day => {
+    const daySlots = slots
+      .filter(s => s.day === day)
+      .sort((a,b) => parseInt(a.time_slot) - parseInt(b.time_slot));
+
+    // Build merged blocks for day view too
+    const rendered = [];
+    const used     = new Set();
+    daySlots.forEach((s, i) => {
+      if (used.has(i)) return;
+      let span = 1;
+      for (let j = i + 1; j < daySlots.length; j++) {
+        if (tsStart(daySlots[j].time_slot) !== tsEnd(daySlots[j-1].time_slot)) break;
+        if (daySlots[j].subject_name === s.subject_name &&
+            daySlots[j].teacher_name === s.teacher_name &&
+            daySlots[j].type         === s.type) {
+          span++;
+          used.add(j);
+        } else break;
+      }
+      const endTime = span > 1 ? daySlots[i + span - 1].time_slot.split('-')[1] : s.time_slot.split('-')[1];
+      const timeLabel = span > 1
+        ? `${s.time_slot.split('-')[0]} – ${endTime}`
+        : s.time_slot;
+      rendered.push({ s, timeLabel, span });
+    });
+
+    const slotsHtml = rendered.length === 0
+      ? `<div class="day-col-empty">No classes</div>`
+      : rendered.map(({ s, timeLabel, span }) => {
+          const cls = branchColor[s.branch_name] || 'c0';
+          return `<div class="day-slot-card ${cls}"
+                       data-teacher="${esc(s.teacher_name)}"
+                       data-branch="${esc(s.branch_name)}"
+                       data-type="${esc(s.type)}"
+                       style="min-height:${span * 52}px;">
+            <div class="dsc-time">${esc(timeLabel)}</div>
+            <div class="dsc-subject">${esc(s.subject_name)}</div>
+            <div class="dsc-meta">
+              <span>${esc(s.teacher_name)}</span>
+              <span>${esc(s.branch_name)}</span>
+            </div>
+            <span class="dsc-badge">${esc(s.type)}${span > 1 ? ` · ${span}h` : ''}</span>
+          </div>`;
+        }).join('');
+
+    return `<div class="day-column">
+      <div class="day-col-header">${day}</div>
+      <div class="day-col-slots">${slotsHtml}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('dayView').innerHTML = html;
+}
+
+function renderLegend() {
+  const branches = [...new Set(timetable.teachers.map(t => t.branch_name))];
+
+  const html = branches.map(branch => {
+    const cls   = branchColor[branch] || 'c0';
+    const idx   = PALETTE.indexOf(cls);
+    const color = P_COLORS[idx] || '#5ba3d9';
+    const teachers = [...new Set(
+      timetable.teachers
+        .filter(t => t.branch_name === branch)
+        .flatMap(t => t.teacher_name.split('/').map(n => n.trim()))
+    )];
+    const count = timetable.slots.filter(s => s.branch_name === branch).length;
+
+    return `<div class="legend-row" onclick="filterByBranch('${esc(branch)}')" title="Filter by ${esc(branch)}">
+      <div class="legend-swatch" style="background:${color}"></div>
+      <div class="legend-info">
+        <div class="legend-branch">${esc(branch)}</div>
+        <div class="legend-teachers">${teachers.join(', ')}</div>
+      </div>
+      <div class="legend-count">${count} slots</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('legendList').innerHTML = html || '<div style="color:var(--slate-400);font-size:13px">No branches found.</div>';
+}
+
+function filterByBranch(branch) {
+  const sel = document.getElementById('filterBranch');
+  sel.value = sel.value === branch ? '' : branch;
+  applyFilters();
+  document.querySelectorAll('.legend-row').forEach(r => {
+    r.classList.toggle('active-filter', r.textContent.includes(branch) && sel.value === branch);
+  });
+}
+
+function renderRoster() {
+  const branchIdx = {};
+  [...new Set(timetable.teachers.map(t => t.branch_name))].forEach((b, i) => {
+    branchIdx[b] = i;
+  });
+
+  // Group entries by unique teacher_name — merge subjects into one row
+  const grouped = new Map();
+  timetable.teachers.forEach((t, i) => {
+    if (!grouped.has(t.teacher_name)) {
+      grouped.set(t.teacher_name, { teacher_name: t.teacher_name, entries: [], colorIdx: i });
+    }
+    grouped.get(t.teacher_name).entries.push(t);
+  });
+
+  const html = [...grouped.values()].map(g => {
+    const t      = g.entries[0];
+    const allSlots = timetable.slots.filter(s => s.teacher_name === t.teacher_name);
+    const lecs   = allSlots.filter(s => s.type === 'lecture').length;
+    const labs   = allSlots.filter(s => s.type === 'lab').length;
+    const idx    = g.colorIdx;
+    const color  = P_COLORS[idx % P_COLORS.length];
+    const initials = t.teacher_name.split(/[\s\/]+/).map(w => w[0]).filter(Boolean).join('').slice(0,2).toUpperCase();
+
+    // Build subjects/branch cells — one per entry, separated by commas if multiple
+    const subjectList = g.entries.map(e => esc(e.subject_name)).join(', ');
+    const branchList  = [...new Set(g.entries.map(e => e.branch_name))].map(b => {
+      const bi    = branchIdx[b] ?? 0;
+      const bcol  = P_COLORS[bi % P_COLORS.length];
+      return `<span class="roster-branch"><span style="width:8px;height:8px;border-radius:50%;background:${bcol};display:inline-block;flex-shrink:0"></span>${esc(b)}</span>`;
+    }).join(' ');
+
+    return `<tr>
+      <td>
+        <div class="roster-name-cell">
+          <div class="teacher-avatar" style="background:${color}22;color:${color};border:1px solid ${color}44">${initials}</div>
+          <span>${esc(t.teacher_name)}</span>
+        </div>
+      </td>
+      <td>${branchList}</td>
+      <td class="roster-subject">${subjectList}</td>
+      <td class="roster-slots">${allSlots.length}</td>
+      <td>
+        <div class="roster-types">
+          ${lecs > 0 ? `<span class="type-chip type-lec">${lecs}L</span>` : ''}
+          ${labs > 0 ? `<span class="type-chip type-lab">${labs}P</span>` : ''}
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('rosterBody').innerHTML = html ||
+    `<tr><td colspan="5" style="text-align:center;color:var(--slate-400);padding:20px">No teachers found.</td></tr>`;
+}
+
+function setView(v) {
+  currentView = v;
+  document.getElementById('weekView').style.display = v === 'week' ? '' : 'none';
+  const dv = document.getElementById('dayView');
+  dv.classList.toggle('visible', v === 'day');
+  document.getElementById('vt-week').classList.toggle('active', v === 'week');
+  document.getElementById('vt-day').classList.toggle('active', v === 'day');
+}
+
+function setupTooltip() {
+  document.addEventListener('mousemove', e => {
+    const tt = document.getElementById('tooltip');
+    if (!tt.classList.contains('visible')) return;
+    const x = e.clientX + 16, y = e.clientY + 12;
+    tt.style.left = (x + 260 > window.innerWidth ? e.clientX - 276 : x) + 'px';
+    tt.style.top  = (y + 160 > window.innerHeight ? e.clientY - 160 : y) + 'px';
+  });
+}
+
+function showTooltip(e, el) {
+  const tt = document.getElementById('tooltip');
+  document.getElementById('tt-subject').textContent = el.dataset.subject || '';
+  document.getElementById('tt-teacher').textContent = el.dataset.teacher || '';
+  document.getElementById('tt-branch').textContent  = el.dataset.branch  || '';
+  document.getElementById('tt-time').textContent    = el.dataset.time    || '';
+  document.getElementById('tt-type').textContent    = el.dataset.type    || '';
+  tt.classList.add('visible');
+}
+
+function hideTooltip() {
+  document.getElementById('tooltip').classList.remove('visible');
+}
+
+function openDeleteModal() {
+  document.getElementById('delModal').classList.add('active');
+  document.getElementById('delConfirmBtn').onclick = confirmDelete;
+}
+
+async function confirmDelete() {
+  closeModal();
+  try {
+    await authFetch(`${API}/timetables/${timetable.id}`, { method:'DELETE' });
+  } catch {}
+  showToast('Timetable deleted — redirecting…', 's');
+  setTimeout(() => window.location.href = 'index.html', 1600);
+}
+
+function closeModal() {
+  document.getElementById('delModal').classList.remove('active');
+}
+
+document.getElementById('delModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('delModal')) closeModal();
+});
+
+function exportPDF() {
+  if (!timetable) return;
+  const link = document.createElement('a');
+  link.href = `${API}/timetables/${timetable.id}/export/pdf`;
+  link.download = `timetable_${timetable.id}.pdf`;
+  link.click();
+  showToast('PDF download started', 's');
+}
+
+function exportIcal() {
+  if (!timetable) return;
+  const link = document.createElement('a');
+  link.href = `${API}/timetables/${timetable.id}/export/ical`;
+  link.download = `timetable_${timetable.id}.ics`;
+  link.click();
+  showToast('iCal download started — import into Google Calendar or Outlook', 's');
+}
+
+let kbDayIndex = 0;
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+  switch (e.key) {
+    case 'ArrowLeft':
+      if (currentView === 'day') { e.preventDefault(); navigateDayKb(-1); }
+      break;
+    case 'ArrowRight':
+      if (currentView === 'day') { e.preventDefault(); navigateDayKb(1); }
+      break;
+    case 'ArrowUp':
+      if (currentView === 'week') { e.preventDefault(); document.querySelector('.grid-wrap')?.scrollBy({top:-80,behavior:'smooth'}); }
+      break;
+    case 'ArrowDown':
+      if (currentView === 'week') { e.preventDefault(); document.querySelector('.grid-wrap')?.scrollBy({top:80,behavior:'smooth'}); }
+      break;
+    case 'p': case 'P':
+      window.print();
+      break;
+    case 'w': case 'W':
+      setView('week');
+      showToast('Week view  (↑↓ to scroll)', 'i');
+      break;
+    case 'd': case 'D':
+      setView('day');
+      showToast('Day view  (←→ to navigate days)', 'i');
+      break;
+    case 'Escape':
+      if (document.getElementById('delModal').classList.contains('active')) closeModal();
+      break;
+  }
+});
+
+function navigateDayKb(delta) {
+  if (!timetable) return;
+  const days = DAY_ORDER.filter(d => timetable.slots.some(s => s.day === d));
+  if (!days.length) return;
+  if (currentView !== 'day') setView('day');
+
+  kbDayIndex = ((kbDayIndex + delta) + days.length) % days.length;
+  const cols = document.querySelectorAll('#dayView .day-column');
+
+  cols.forEach((c, i) => {
+    c.style.transition = 'box-shadow .18s, opacity .18s';
+    c.style.opacity    = i === kbDayIndex ? '1' : '0.38';
+    c.style.boxShadow  = i === kbDayIndex ? '0 0 0 2px var(--gold-400), 0 8px 24px rgba(240,192,96,0.15)' : '';
+  });
+
+  cols[kbDayIndex]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  showToast(`📅 ${days[kbDayIndex]}`, 'i');
+
+  setTimeout(() => cols.forEach(c => { c.style.opacity = ''; c.style.boxShadow = ''; }), 1600);
+}
+async function regenerateTimetable() {
+  if (!timetable) return;
+  const btn = document.getElementById('regenBtn');
+
+  const confirmed = window.confirm(
+    `Regenerate the schedule for "${timetable.name}"?\n\nTeachers are kept. Slots will be replaced with a fresh AI-generated schedule.`
+  );
+  if (!confirmed) return;
+
+  btn.disabled = true;
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;animation:spin .7s linear infinite"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> Regenerating…`;
+
+  try {
+    const res = await authFetch(`${API}/timetables/${timetable.id}/regenerate`, { method: 'POST' });
+    const data = await res.json();
+
+    if (data.success) {
+      showToast(`Regenerated in ${data.attempts} attempt(s) — reloading…`, 's');
+      setTimeout(() => window.location.reload(), 1600);
+    } else {
+      showToast(data.error || 'Regeneration failed.', 'e');
+      btn.disabled = false;
+      btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> Regenerate`;
+    }
+  } catch {
+    showToast('Backend offline — cannot regenerate.', 'e');
+    btn.disabled = false;
+    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> Regenerate`;
+  }
+}
+
+function exportCSV() {
+  if (!timetable) return;
+  const rows  = [['Day','Time Slot','Teacher','Branch','Subject','Type']];
+  timetable.slots
+    .sort((a,b) => (DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day)) || a.time_slot.localeCompare(b.time_slot))
+    .forEach(s => rows.push([s.day, s.time_slot, s.teacher_name, s.branch_name, s.subject_name, s.type]));
+
+  const csv  = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type:'text/csv' });
+  const link = document.createElement('a');
+  link.href  = URL.createObjectURL(blob);
+  link.download = `timetable-${timetable.id}-${timetable.name.replace(/\s+/g,'_')}.csv`;
+  link.click();
+  showToast('CSV exported', 's');
+}
+
+function showError(msg) {
+  hide('loadingScreen');
+  document.getElementById('errorMsg').textContent = msg || 'Unknown error.';
+  document.getElementById('errorScreen').classList.add('visible');
+}
+
+function showToast(msg, type='i') {
+  const c = document.getElementById('toastC');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+
+function show(id) { document.getElementById(id).style.display = ''; }
+function hide(id) { document.getElementById(id).style.display = 'none'; }
+function esc(s)   { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtDate(ds) {
+  try { return new Date(ds).toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'}); }
+  catch { return ds; }
+}
+</script>
+
+<footer style="position:relative;z-index:1;text-align:center;padding:40px 32px 28px;border-top:1px solid rgba(240,192,96,0.07);margin-top:20px;">
+  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:rgba(143,163,190,0.35);">✦ AI Timetable Planner &nbsp;·&nbsp; Academic Scheduling System</span>
+</footer>
+</body>
+</html>

@@ -1,0 +1,832 @@
+<html>
+<head>
+  <title>AI Timetable Planner — Smart Academic Scheduling</title>
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --navy-950:#05090f; --navy-900:#0a1220; --navy-800:#0f1e35; --navy-700:#162845;
+      --navy-600:#1d3560;
+      --gold-400:#f0c060; --gold-300:#f5d080; --gold-200:#fae5b0; --gold-500:#c8962a;
+      --slate-400:#8fa3be; --slate-300:#b5c7d8; --slate-200:#d4e0ea;
+      --white:#f0f4f8; --red-400:#e05c5c; --green-400:#4ec994; --blue-400:#5ba3d9;
+      --card-bg:rgba(15,30,53,0.85); --card-border:rgba(240,192,96,0.13);
+      --card-hover-border:rgba(240,192,96,0.42);
+      --font-display:'Playfair Display',Georgia,serif;
+      --font-body:'IBM Plex Sans',sans-serif;
+      --font-mono:'IBM Plex Mono',monospace;
+      --radius:12px; --radius-sm:6px; --t:0.22s cubic-bezier(.4,0,.2,1);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html{scroll-behavior:smooth;}
+    body{font-family:var(--font-body);background:var(--navy-950);color:var(--white);min-height:100vh;overflow-x:hidden;animation:pageFadeIn .35s ease both;}
+    @keyframes pageFadeIn{from{opacity:0}to{opacity:1}}
+    body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+      background:radial-gradient(ellipse 80% 60% at 15% 10%,rgba(35,66,120,0.35) 0%,transparent 60%),
+      radial-gradient(ellipse 60% 50% at 85% 80%,rgba(200,150,42,0.08) 0%,transparent 55%),
+      url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none'%3E%3Cg fill='%23234278' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");}
+    .page-wrapper{position:relative;z-index:1;max-width:1320px;margin:0 auto;padding:0 32px 80px;}
+
+    /* ── HEADER ── */
+    header{display:flex;align-items:flex-end;justify-content:space-between;padding:52px 0 40px;border-bottom:1px solid rgba(240,192,96,0.12);gap:24px;flex-wrap:wrap;}
+    .header-eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-400);margin-bottom:10px;}
+    .header-title{font-family:var(--font-display);font-size:clamp(32px,4vw,52px);font-weight:700;line-height:1.1;color:var(--white);}
+    .header-title span{color:var(--gold-400);}
+    .header-subtitle{margin-top:10px;font-size:14px;font-weight:300;color:var(--slate-400);letter-spacing:.02em;}
+    .header-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+    .btn-create{display:inline-flex;align-items:center;gap:10px;padding:14px 28px;background:linear-gradient(135deg,var(--gold-400),var(--gold-300));color:var(--navy-950);font-family:var(--font-body);font-weight:700;font-size:14px;letter-spacing:.04em;text-decoration:none;border:none;border-radius:var(--radius-sm);cursor:pointer;transition:all var(--t);white-space:nowrap;}
+    .btn-create:hover{background:linear-gradient(135deg,var(--gold-300),#fde090);transform:translateY(-2px);box-shadow:0 10px 32px rgba(240,192,96,0.32);}
+    .btn-create:active{transform:translateY(0);}
+    .btn-create svg{width:18px;height:18px;flex-shrink:0;}
+    .btn-audit{display:inline-flex;align-items:center;gap:8px;padding:12px 20px;background:rgba(240,192,96,0.04);border:1px solid rgba(240,192,96,0.22);color:var(--gold-400);font-family:var(--font-body);font-size:13px;font-weight:500;border-radius:var(--radius-sm);cursor:pointer;transition:all var(--t);text-decoration:none;}
+    .btn-audit:hover{background:rgba(240,192,96,0.1);border-color:rgba(240,192,96,0.45);transform:translateY(-1px);}
+    .btn-audit svg{width:15px;height:15px;}
+
+    /* ── STATS BAR ── */
+    .stats-bar{display:flex;gap:2px;margin:36px 0 40px;background:var(--navy-900);border:1px solid rgba(240,192,96,0.12);border-radius:var(--radius);overflow:hidden;box-shadow:0 1px 0 rgba(255,255,255,0.04) inset,0 4px 24px rgba(0,0,0,0.2);}
+    .stat-item{flex:1;padding:20px 24px;display:flex;flex-direction:column;gap:4px;border-right:1px solid rgba(240,192,96,0.08);transition:background var(--t);}
+    .stat-item:last-child{border-right:none;}
+    .stat-item:hover{background:rgba(35,66,120,0.3);}
+    .stat-value{font-family:var(--font-mono);font-size:30px;font-weight:500;color:var(--gold-400);line-height:1;letter-spacing:-.02em;}
+    .stat-label{font-size:11px;font-weight:400;color:var(--slate-400);text-transform:uppercase;letter-spacing:.12em;}
+
+    /* ── SERVER STATUS ── */
+    .server-banner{display:none;align-items:center;gap:12px;padding:12px 18px;background:rgba(224,92,92,0.08);border:1px solid rgba(224,92,92,0.25);border-radius:var(--radius-sm);margin-bottom:24px;font-size:13px;color:var(--slate-300);}
+    .server-banner.visible{display:flex;}
+    .server-banner svg{width:16px;height:16px;color:var(--red-400);flex-shrink:0;}
+    .server-banner strong{color:var(--red-400);}
+    .server-banner code{font-family:var(--font-mono);font-size:12px;background:rgba(255,255,255,0.07);padding:2px 7px;border-radius:3px;}
+
+    /* ── TOOLBAR ── */
+    .toolbar{display:flex;gap:12px;margin-bottom:28px;align-items:center;flex-wrap:wrap;}
+    .search-wrap{position:relative;flex:1;min-width:200px;}
+    .search-wrap svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--slate-400);pointer-events:none;}
+    .search-input{width:100%;padding:11px 14px 11px 40px;background:var(--navy-800);border:1px solid rgba(240,192,96,0.12);border-radius:var(--radius-sm);color:var(--white);font-family:var(--font-body);font-size:14px;outline:none;transition:border-color var(--t);}
+    .search-input::placeholder{color:var(--slate-400);}
+    .search-input:focus{border-color:rgba(240,192,96,0.45);box-shadow:0 0 0 3px rgba(240,192,96,0.08);}
+    .filter-select{padding:11px 36px 11px 14px;background:var(--navy-800);border:1px solid rgba(240,192,96,0.12);border-radius:var(--radius-sm);color:var(--white);font-family:var(--font-body);font-size:14px;outline:none;cursor:pointer;transition:border-color var(--t);appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238fa3be' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;}
+    .filter-select:focus{border-color:rgba(240,192,96,0.45);box-shadow:0 0 0 3px rgba(240,192,96,0.08);}
+    .filter-select option{background:var(--navy-900);}
+    .btn-sort{display:flex;align-items:center;gap:8px;padding:11px 16px;background:var(--navy-800);border:1px solid rgba(240,192,96,0.12);border-radius:var(--radius-sm);color:var(--slate-300);font-family:var(--font-body);font-size:13px;cursor:pointer;white-space:nowrap;transition:all var(--t);}
+    .btn-sort:hover{border-color:rgba(240,192,96,0.3);color:var(--white);}
+    .btn-sort svg{width:15px;height:15px;}
+
+    /* ── SECTION HEADER ── */
+    .section-header{display:flex;align-items:center;gap:14px;margin-bottom:20px;}
+    .section-title{font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--slate-400);}
+    .section-line{flex:1;height:1px;background:rgba(240,192,96,0.1);}
+    .result-count{font-family:var(--font-mono);font-size:11px;color:var(--slate-400);}
+
+    /* ── GRID ── */
+    .timetable-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px;}
+
+    /* ── CARD ── */
+    .tt-card{
+      background:var(--card-bg);border:1px solid var(--card-border);
+      border-radius:var(--radius);backdrop-filter:blur(12px);overflow:hidden;
+      transition:transform var(--t),border-color var(--t),box-shadow var(--t);
+      animation:fadeSlideIn 0.5s ease both;position:relative;
+    }
+    .tt-card:hover{transform:translateY(-5px);border-color:var(--card-hover-border);box-shadow:0 20px 56px rgba(0,0,0,0.45),0 0 0 1px rgba(240,192,96,0.12),0 1px 0 rgba(255,255,255,0.06) inset;}
+    .tt-card:nth-child(1){animation-delay:.05s}.tt-card:nth-child(2){animation-delay:.10s}
+    .tt-card:nth-child(3){animation-delay:.15s}.tt-card:nth-child(4){animation-delay:.20s}
+    .tt-card:nth-child(5){animation-delay:.25s}.tt-card:nth-child(6){animation-delay:.30s}
+    @keyframes fadeSlideIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+    .card-accent-bar{height:3px;background:linear-gradient(90deg,var(--gold-500),var(--gold-400) 50%,var(--gold-300));background-size:200% 100%;animation:accentShimmer 3s ease infinite;}
+    @keyframes accentShimmer{0%,100%{background-position:0% 0}50%{background-position:100% 0}}
+
+    /* Clickable area (title + stats) */
+    .card-link-area{
+      display:block;padding:20px 24px 14px;text-decoration:none;color:inherit;
+      cursor:pointer;
+    }
+    .card-link-area:hover .card-title{color:var(--gold-300);}
+
+    .card-meta-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;}
+    .card-badges{display:flex;gap:6px;flex-wrap:wrap;}
+    .badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-family:var(--font-mono);font-weight:500;letter-spacing:.04em;}
+    .badge-semester{background:rgba(240,192,96,0.1);color:var(--gold-300);border:1px solid rgba(240,192,96,0.2);}
+    .badge-dept{background:rgba(91,163,217,0.1);color:var(--blue-400);border:1px solid rgba(91,163,217,0.2);}
+    .card-id{font-family:var(--font-mono);font-size:11px;color:var(--slate-400);opacity:.6;}
+    .card-title{font-family:var(--font-display);font-size:19px;font-weight:600;color:var(--white);margin-bottom:5px;line-height:1.3;transition:color var(--t);}
+    .card-date{font-size:12px;color:var(--slate-400);font-weight:300;margin-bottom:16px;}
+    .card-stats{display:flex;gap:0;border:1px solid rgba(240,192,96,0.1);border-radius:var(--radius-sm);overflow:hidden;}
+    .c-stat{flex:1;padding:9px 12px;text-align:center;border-right:1px solid rgba(240,192,96,0.08);background:rgba(255,255,255,0.02);}
+    .c-stat:last-child{border-right:none;}
+    .c-stat-value{font-family:var(--font-mono);font-size:18px;font-weight:600;color:var(--white);line-height:1;}
+    .c-stat-label{font-size:9px;color:var(--slate-400);text-transform:uppercase;letter-spacing:.1em;margin-top:3px;}
+
+    /* ── HOVER-REVEAL ACTION BAR ── */
+    .card-actions{
+      display:flex;gap:6px;padding:0 16px 14px;flex-wrap:wrap;
+      opacity:0;transform:translateY(6px);
+      transition:opacity var(--t),transform var(--t);
+      pointer-events:none;
+    }
+    .tt-card:hover .card-actions{opacity:1;transform:translateY(0);pointer-events:all;}
+
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:7px 13px;border-radius:var(--radius-sm);font-family:var(--font-body);font-size:12px;font-weight:500;cursor:pointer;border:none;transition:all var(--t);text-decoration:none;white-space:nowrap;}
+    .btn svg{width:13px;height:13px;flex-shrink:0;}
+    .btn-view{background:rgba(240,192,96,0.12);color:var(--gold-300);border:1px solid rgba(240,192,96,0.22);}
+    .btn-view:hover{background:rgba(240,192,96,0.22);border-color:rgba(240,192,96,0.5);}
+    .btn-edit{background:rgba(91,163,217,0.1);color:var(--blue-400);border:1px solid rgba(91,163,217,0.2);}
+    .btn-edit:hover{background:rgba(91,163,217,0.2);border-color:rgba(91,163,217,0.4);}
+    .btn-duplicate{background:rgba(58,196,184,0.08);color:#3ac4b8;border:1px solid rgba(58,196,184,0.18);}
+    .btn-duplicate:hover{background:rgba(58,196,184,0.18);border-color:rgba(58,196,184,0.4);}
+    .btn-export{background:rgba(78,201,148,0.08);color:var(--green-400);border:1px solid rgba(78,201,148,0.18);}
+    .btn-export:hover{background:rgba(78,201,148,0.18);border-color:rgba(78,201,148,0.4);}
+    .btn-delete{background:rgba(224,92,92,0.08);color:var(--red-400);border:1px solid rgba(224,92,92,0.16);}
+    .btn-delete:hover{background:rgba(224,92,92,0.18);border-color:rgba(224,92,92,0.4);}
+
+    /* ── EXPORT DROPDOWN ── */
+    .export-wrap{position:relative;}
+    .export-dropdown{position:absolute;bottom:calc(100% + 4px);left:0;right:0;background:var(--navy-800);border:1px solid rgba(78,201,148,0.25);border-radius:var(--radius-sm);overflow:hidden;z-index:100;display:none;min-width:110px;box-shadow:0 -8px 24px rgba(0,0,0,0.4);}
+    .export-wrap:hover .export-dropdown,.export-wrap:focus-within .export-dropdown{display:block;}
+    .export-opt{display:flex;align-items:center;gap:8px;padding:9px 13px;font-size:12px;font-family:var(--font-body);color:var(--slate-300);cursor:pointer;border:none;background:none;width:100%;text-align:left;transition:background var(--t);}
+    .export-opt:hover{background:rgba(78,201,148,0.1);color:var(--green-400);}
+    .export-opt svg{width:12px;height:12px;flex-shrink:0;}
+
+    /* ── CONFLICT BADGE ── */
+    .conflict-badge{
+      position:absolute;top:12px;right:12px;
+      display:flex;align-items:center;gap:5px;
+      background:rgba(224,92,92,0.15);border:1px solid rgba(224,92,92,0.35);
+      border-radius:20px;padding:3px 9px;
+      font-size:9px;font-family:var(--font-mono);color:var(--red-400);
+      letter-spacing:.08em;z-index:2;animation:conflictIn .35s ease both;
+    }
+    .conflict-badge::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--red-400);box-shadow:0 0 5px var(--red-400);animation:confPulse 2s infinite;flex-shrink:0;}
+    @keyframes conflictIn{from{opacity:0;transform:scale(.75)}to{opacity:1;transform:scale(1)}}
+    @keyframes confPulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+    /* ── EMPTY / LOADING ── */
+    .empty-state{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 40px;text-align:center;border:1px dashed rgba(240,192,96,0.12);border-radius:var(--radius);}
+    .empty-icon{width:60px;height:60px;color:rgba(240,192,96,0.25);margin-bottom:20px;}
+    .empty-title{font-family:var(--font-display);font-size:22px;color:var(--slate-300);margin-bottom:10px;}
+    .empty-text{font-size:14px;color:var(--slate-400);max-width:320px;line-height:1.6;margin-bottom:28px;}
+    .loading-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px;}
+    .skeleton-card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius);padding:24px;height:240px;}
+    .skeleton{background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.10) 50%,rgba(255,255,255,0.04) 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:4px;}
+    @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+    /* ── PAGINATION ── */
+    .pagination{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:36px;flex-wrap:wrap;}
+    .page-btn{padding:8px 14px;background:var(--navy-800);border:1px solid rgba(240,192,96,0.12);border-radius:var(--radius-sm);color:var(--slate-300);font-family:var(--font-mono);font-size:12px;cursor:pointer;transition:all var(--t);}
+    .page-btn:hover:not(:disabled){border-color:rgba(240,192,96,0.35);color:var(--white);}
+    .page-btn.active{background:rgba(240,192,96,0.12);border-color:rgba(240,192,96,0.4);color:var(--gold-300);}
+    .page-btn:disabled{opacity:.35;cursor:not-allowed;}
+    .page-info{font-family:var(--font-mono);font-size:11px;color:var(--slate-400);padding:0 8px;}
+
+    /* ── MODAL ── */
+    .modal-overlay{position:fixed;inset:0;background:rgba(5,9,15,.82);backdrop-filter:blur(6px);z-index:1000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s ease;}
+    .modal-overlay.active{opacity:1;pointer-events:all;}
+    .modal{background:var(--navy-800);border:1px solid rgba(240,192,96,0.2);border-radius:var(--radius);padding:36px;width:100%;max-width:460px;transform:scale(.96);transition:transform .22s cubic-bezier(.4,0,.2,1);max-height:85vh;overflow-y:auto;box-shadow:0 32px 80px rgba(0,0,0,0.6),0 1px 0 rgba(255,255,255,0.06) inset;}
+    .modal-overlay.active .modal{transform:scale(1);}
+    .modal-title{font-family:var(--font-display);font-size:22px;color:var(--white);margin-bottom:12px;}
+    .modal-text{font-size:14px;color:var(--slate-300);line-height:1.6;margin-bottom:28px;}
+    .modal-text strong{color:var(--gold-300);}
+    .modal-actions{display:flex;gap:10px;justify-content:flex-end;}
+    .btn-cancel{padding:10px 20px;background:transparent;border:1px solid rgba(255,255,255,.12);border-radius:var(--radius-sm);color:var(--slate-300);font-family:var(--font-body);font-size:14px;cursor:pointer;transition:all var(--t);}
+    .btn-cancel:hover{background:rgba(255,255,255,.06);}
+    .btn-confirm-delete{padding:10px 20px;background:var(--red-400);border:none;border-radius:var(--radius-sm);color:#fff;font-family:var(--font-body);font-weight:600;font-size:14px;cursor:pointer;transition:all var(--t);}
+    .btn-confirm-delete:hover{background:#c94444;}
+    .btn-confirm-dup{padding:10px 20px;background:linear-gradient(135deg,var(--gold-400),var(--gold-300));border:none;border-radius:var(--radius-sm);color:var(--navy-950);font-family:var(--font-body);font-weight:700;font-size:14px;cursor:pointer;transition:all var(--t);}
+    .btn-confirm-dup:hover{background:linear-gradient(135deg,var(--gold-300),#fde090);box-shadow:0 4px 14px rgba(240,192,96,0.3);}
+    .modal-input{width:100%;padding:12px 14px;background:var(--navy-900);border:1px solid rgba(240,192,96,0.15);border-radius:var(--radius-sm);color:var(--white);font-family:var(--font-body);font-size:14px;outline:none;margin-bottom:20px;transition:border-color var(--t);}
+    .modal-input:focus{border-color:rgba(240,192,96,0.5);box-shadow:0 0 0 3px rgba(240,192,96,0.09);}
+    .modal-input::placeholder{color:var(--slate-400);}
+
+    /* ── AUDIT LOG ── */
+    .audit-entry{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid rgba(240,192,96,0.07);}
+    .audit-entry:last-child{border-bottom:none;}
+    .audit-action{font-family:var(--font-mono);font-size:10px;padding:2px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:.06em;flex-shrink:0;height:fit-content;margin-top:2px;}
+    .audit-action.create{background:rgba(78,201,148,0.15);color:var(--green-400);}
+    .audit-action.update{background:rgba(91,163,217,0.15);color:var(--blue-400);}
+    .audit-action.delete{background:rgba(224,92,92,0.15);color:var(--red-400);}
+    .audit-action.regenerate{background:rgba(240,192,96,0.15);color:var(--gold-400);}
+    .audit-action.duplicate{background:rgba(155,121,212,0.15);color:#c0a0f0;}
+    .audit-detail{font-size:13px;color:var(--slate-300);flex:1;}
+    .audit-time{font-family:var(--font-mono);font-size:10px;color:var(--slate-400);flex-shrink:0;white-space:nowrap;}
+
+    /* ── TOAST ── */
+    .toast-container{position:fixed;bottom:32px;right:32px;z-index:9999;display:flex;flex-direction:column;gap:10px;}
+    .toast{display:flex;align-items:center;gap:12px;padding:13px 18px;background:var(--navy-800);border-radius:var(--radius-sm);font-size:13px;min-width:240px;max-width:340px;box-shadow:0 12px 40px rgba(0,0,0,0.55),0 1px 0 rgba(255,255,255,0.06) inset;border:1px solid rgba(255,255,255,0.09);animation:toastIn .3s cubic-bezier(.34,1.4,.64,1);position:relative;overflow:hidden;}
+    .toast.success{border-left:3px solid var(--green-400);}
+    .toast.error{border-left:3px solid var(--red-400);}
+    .toast.info{border-left:3px solid var(--blue-400);}
+    .toast.undo-toast{border-left:3px solid var(--red-400);}
+    .undo-bar{position:absolute;bottom:0;left:0;height:2px;background:var(--red-400);border-radius:0;}
+    @keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+
+    @media(max-width:768px){
+      .page-wrapper{padding:0 16px 60px;}
+      header{padding:32px 0 28px;}
+      .stats-bar{flex-wrap:wrap;}
+      .stat-item{min-width:50%;border-right:none;border-bottom:1px solid rgba(240,192,96,0.08);}
+      .timetable-grid{grid-template-columns:1fr;}
+      .card-actions{opacity:1;transform:none;pointer-events:all;}
+    }
+
+    /* ── ABOUT SECTION ── */
+    .about-section{
+      position:relative;z-index:1;
+      max-width:1320px;margin:0 auto;
+      padding:0 32px 72px;
+    }
+    .about-wrap{
+      background:var(--navy-900);
+      border:1px solid rgba(240,192,96,0.13);
+      border-radius:var(--radius);
+      overflow:hidden;
+      box-shadow:0 4px 32px rgba(0,0,0,0.25),0 1px 0 rgba(255,255,255,0.04) inset;
+    }
+    .about-accent{height:2px;background:linear-gradient(90deg,transparent,var(--gold-500) 30%,var(--gold-400) 50%,var(--gold-500) 70%,transparent);}
+    .about-inner{display:grid;grid-template-columns:1fr 1fr;gap:0;}
+    .about-left{padding:36px 40px;border-right:1px solid rgba(240,192,96,0.1);}
+    .about-right{padding:36px 40px;}
+    .about-eyebrow{
+      font-family:var(--font-mono);font-size:10px;
+      letter-spacing:.22em;text-transform:uppercase;
+      color:var(--gold-500);margin-bottom:10px;
+    }
+    .about-title{
+      font-family:var(--font-display);font-size:26px;font-weight:700;
+      color:var(--white);line-height:1.2;margin-bottom:14px;
+    }
+    .about-title span{color:var(--gold-400);}
+    .about-desc{
+      font-size:13px;font-weight:300;color:var(--slate-400);
+      line-height:1.8;
+    }
+    .about-desc strong{color:var(--slate-300);font-weight:500;}
+    .about-meta{
+      display:flex;flex-wrap:wrap;gap:8px;margin-top:20px;
+    }
+    .about-tag{
+      display:inline-flex;align-items:center;gap:6px;
+      padding:4px 12px;
+      background:rgba(240,192,96,0.07);
+      border:1px solid rgba(240,192,96,0.15);
+      border-radius:20px;
+      font-family:var(--font-mono);font-size:10px;
+      color:var(--gold-400);letter-spacing:.06em;
+    }
+    .about-tag::before{content:'✦';font-size:8px;opacity:.6;}
+
+    /* Team grid */
+    .team-eyebrow{
+      font-family:var(--font-mono);font-size:10px;
+      letter-spacing:.22em;text-transform:uppercase;
+      color:var(--slate-400);margin-bottom:18px;
+    }
+    .team-grid{display:flex;flex-direction:column;gap:10px;}
+    .team-card{
+      display:flex;align-items:center;gap:14px;
+      padding:13px 16px;
+      background:rgba(255,255,255,0.025);
+      border:1px solid rgba(240,192,96,0.08);
+      border-radius:var(--radius-sm);
+      transition:background var(--t),border-color var(--t),transform var(--t);
+      animation:teamCardIn .4s ease both;
+    }
+    .team-card:nth-child(1){animation-delay:.05s}
+    .team-card:nth-child(2){animation-delay:.10s}
+    .team-card:nth-child(3){animation-delay:.15s}
+    .team-card:nth-child(4){animation-delay:.20s}
+    @keyframes teamCardIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
+    .team-card:hover{
+      background:rgba(240,192,96,0.05);
+      border-color:rgba(240,192,96,0.22);
+      transform:translateX(4px);
+    }
+    .team-avatar{
+      width:36px;height:36px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      font-family:var(--font-display);font-size:14px;font-weight:700;
+      flex-shrink:0;border:1px solid;
+    }
+    .team-info{flex:1;min-width:0;}
+    .team-name{font-size:14px;font-weight:600;color:var(--white);}
+    .team-roll{
+      font-family:var(--font-mono);font-size:11px;
+      color:var(--slate-400);margin-top:2px;
+      display:flex;align-items:center;gap:6px;
+    }
+    .team-arrow{color:var(--gold-500);font-size:12px;}
+
+    @media(max-width:720px){
+      .about-section{padding:0 16px 60px;}
+      .about-inner{grid-template-columns:1fr;}
+      .about-left{border-right:none;border-bottom:1px solid rgba(240,192,96,0.1);padding:28px 24px;}
+      .about-right{padding:28px 24px;}
+    }
+  </style>
+</head>
+<body>
+<div class="page-wrapper">
+
+  <header>
+    <div class="header-left">
+      <div class="header-eyebrow">✦ Academic Scheduling System · AI-Powered</div>
+      <h1 class="header-title">AI Timetable<br><span>Planner</span></h1>
+      <p class="header-subtitle">Generate conflict-free weekly schedules in seconds. Every timetable is saved, searchable, and exportable.</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn-audit" onclick="openAuditModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Audit Log
+      </button>
+      <a href="create.html" class="btn-create">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        Create Timetable
+      </a>
+    </div>
+  </header>
+
+  
+  <div class="server-banner" id="serverBanner">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <span><strong>Backend server is not running.</strong> Start it with <code>python app.py</code> then refresh this page.</span>
+  </div>
+
+  
+  <div class="stats-bar" id="statsBar">
+    <div class="stat-item"><div class="stat-value" id="statTotal">—</div><div class="stat-label">Timetables</div></div>
+    <div class="stat-item"><div class="stat-value" id="statTeachers">—</div><div class="stat-label">Teachers</div></div>
+    <div class="stat-item"><div class="stat-value" id="statSlots">—</div><div class="stat-label">Total Slots</div></div>
+    <div class="stat-item"><div class="stat-value" id="statDepts">—</div><div class="stat-label">Departments</div></div>
+  </div>
+
+  
+  <div class="toolbar">
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input class="search-input" type="text" id="searchInput" placeholder="Search timetables, departments, semesters…" />
+    </div>
+    <select class="filter-select" id="deptFilter"><option value="">All Departments</option></select>
+    <select class="filter-select" id="semFilter"><option value="">All Semesters</option></select>
+    <button class="btn-sort" id="sortBtn" onclick="toggleSort()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M7 12h10M11 18h2"/></svg>
+      <span id="sortLabel">Newest First</span>
+    </button>
+  </div>
+
+  <div class="section-header">
+    <span class="section-title">Saved Timetables</span>
+    <div class="section-line"></div>
+    <span class="result-count" id="resultCount"></span>
+  </div>
+
+  
+  <div id="gridContainer">
+    <div class="loading-grid" id="loadingGrid">
+      <div class="skeleton-card"><div class="skeleton" style="height:10px;width:38%;margin-bottom:14px"></div><div class="skeleton" style="height:20px;width:72%;margin-bottom:8px"></div><div class="skeleton" style="height:12px;width:50%;margin-bottom:20px"></div><div class="skeleton" style="height:52px;margin-bottom:16px"></div><div class="skeleton" style="height:32px"></div></div>
+      <div class="skeleton-card"><div class="skeleton" style="height:10px;width:38%;margin-bottom:14px"></div><div class="skeleton" style="height:20px;width:72%;margin-bottom:8px"></div><div class="skeleton" style="height:12px;width:50%;margin-bottom:20px"></div><div class="skeleton" style="height:52px;margin-bottom:16px"></div><div class="skeleton" style="height:32px"></div></div>
+      <div class="skeleton-card"><div class="skeleton" style="height:10px;width:38%;margin-bottom:14px"></div><div class="skeleton" style="height:20px;width:72%;margin-bottom:8px"></div><div class="skeleton" style="height:12px;width:50%;margin-bottom:20px"></div><div class="skeleton" style="height:52px;margin-bottom:16px"></div><div class="skeleton" style="height:32px"></div></div>
+    </div>
+    <div class="timetable-grid" id="timetableGrid" style="display:none;"></div>
+  </div>
+
+  <div class="pagination" id="paginationBar" style="display:none;"></div>
+</div>
+
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <div class="modal-title">Delete Timetable?</div>
+    <p class="modal-text">Are you sure you want to delete <strong id="deleteModalName"></strong>? This removes all teachers and slots permanently.</p>
+    <div class="modal-actions"><button class="btn-cancel" onclick="closeModal('deleteModal')">Cancel</button><button class="btn-confirm-delete" id="confirmDeleteBtn">Delete</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="dupModal">
+  <div class="modal">
+    <div class="modal-title">Duplicate Timetable</div>
+    <p class="modal-text" style="margin-bottom:16px">Enter a name for the copy:</p>
+    <input type="text" class="modal-input" id="dupNameInput" placeholder="e.g. CSE Sem 4 (Revised)" />
+    <div class="modal-actions"><button class="btn-cancel" onclick="closeModal('dupModal')">Cancel</button><button class="btn-confirm-dup" id="confirmDupBtn">Duplicate</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="auditModal">
+  <div class="modal" style="max-width:580px;">
+    <div class="modal-title">Audit Log</div>
+    <p style="font-size:13px;color:var(--slate-400);margin-bottom:20px;">Recent activity across all timetables. <a href="audit.html" style="color:var(--gold-400);text-decoration:none;">View full log →</a></p>
+    <div id="auditLogBody" style="min-height:80px;"></div>
+    <div class="modal-actions" style="margin-top:20px;"><button class="btn-cancel" onclick="closeModal('auditModal')">Close</button></div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+const API = API_BASE;
+
+let allTimetables = [];
+let sortAsc       = false;
+let currentPage   = 1;
+const PAGE_LIMIT  = 12;
+let totalPages    = 1;
+let searchTimer   = null;
+let pendingDeleteId = null;
+let pendingDupId    = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderAuthBar('.topnav');
+  // Show/hide create button based on role
+  const createBtn = document.querySelector('.btn-create');
+  if (createBtn) {
+    if (!isLoggedIn()) {
+      createBtn.href = 'login.html?next=create.html';
+      createBtn.title = 'Sign in to create timetables';
+    }
+  }
+  // Hide duplicate button for non-head in cards (handled in buildCard)
+  loadPage(1);
+  document.getElementById('searchInput').addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => loadPage(1), 350);
+  });
+  document.getElementById('deptFilter').addEventListener('change', () => loadPage(1));
+  document.getElementById('semFilter').addEventListener('change',  () => loadPage(1));
+});
+
+async function loadPage(page) {
+  currentPage = page;
+  showLoading(true);
+  document.getElementById('serverBanner').classList.remove('visible');
+
+  const search = document.getElementById('searchInput').value.trim();
+  const dept   = document.getElementById('deptFilter').value;
+  const sem    = document.getElementById('semFilter').value;
+
+  const params = new URLSearchParams({ page, limit: PAGE_LIMIT });
+  if (search) params.set('search', search);
+  if (dept)   params.set('dept', dept);
+  if (sem)    params.set('semester', sem);
+
+  try {
+    const res  = await fetch(`${API}/timetables?${params}`);
+    if (!res.ok) throw new Error('Server error ' + res.status);
+    const json = await res.json();
+
+    allTimetables = json.data;
+    totalPages    = json.total_pages || 1;
+
+    if (page === 1 && !search && !dept && !sem) {
+      populateFilters();
+      updateStats();
+    }
+
+    showLoading(false);
+    renderGrid(json.total);
+    renderPagination(json.total);
+    loadConflictBadges();
+
+  } catch (err) {
+    showLoading(false);
+    document.getElementById('serverBanner').classList.add('visible');
+    allTimetables = [];
+    renderGrid(0);
+  }
+}
+
+async function updateStats() {
+  try {
+    const res  = await fetch(`${API}/stats`);
+    const json = await res.json();
+    if (json.success) {
+      animateCount('statTotal',    json.data.total_timetables);
+      animateCount('statTeachers', json.data.total_teachers);
+      animateCount('statSlots',    json.data.total_slots);
+      animateCount('statDepts',    json.data.total_departments);
+    }
+  } catch {}
+}
+
+function animateCount(id, target) {
+  const el = document.getElementById(id);
+  let n = 0;
+  const step = Math.max(1, Math.ceil(target / 30));
+  const iv = setInterval(() => { n = Math.min(n + step, target); el.textContent = n; if (n >= target) clearInterval(iv); }, 40);
+}
+
+async function populateFilters() {
+  try {
+    const res  = await fetch(`${API}/timetables?limit=500`);
+    const json = await res.json();
+    fillFilterSelects(json.data || []);
+  } catch {}
+}
+
+function fillFilterSelects(all) {
+  const depts = [...new Set(all.map(t => t.department).filter(Boolean))];
+  const sems  = [...new Set(all.map(t => t.semester).filter(Boolean))];
+  const deptSel = document.getElementById('deptFilter');
+  const semSel  = document.getElementById('semFilter');
+  if (deptSel.options.length > 1) return;
+  depts.forEach(d => { const o = document.createElement('option'); o.value = d; o.textContent = d; deptSel.appendChild(o); });
+  sems.forEach(s  => { const o = document.createElement('option'); o.value = s; o.textContent = s; semSel.appendChild(o);  });
+}
+
+function renderGrid(total) {
+  const grid = document.getElementById('timetableGrid');
+  document.getElementById('resultCount').textContent = `${total} timetable${total !== 1 ? 's' : ''}`;
+
+  if (!allTimetables.length) {
+    const search = document.getElementById('searchInput').value;
+    const isFiltered = search || document.getElementById('deptFilter').value || document.getElementById('semFilter').value;
+    grid.innerHTML = `<div class="empty-state">
+      <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      <div class="empty-title">${isFiltered ? 'No results found' : 'No timetables yet'}</div>
+      <p class="empty-text">${isFiltered ? 'Try adjusting your search or filters.' : 'Create your first AI-generated, conflict-free timetable to get started.'}</p>
+      ${!isFiltered ? `<a href="create.html" class="btn-create" style="font-size:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:16px;height:16px"><path d="M12 5v14M5 12h14"/></svg>Create First Timetable</a>` : ''}
+    </div>`;
+    return;
+  }
+
+  const sorted = [...allTimetables].sort((a, b) => {
+    const da = new Date(a.created_at), db = new Date(b.created_at);
+    return sortAsc ? da - db : db - da;
+  });
+  grid.innerHTML = sorted.map(t => buildCard(t)).join('');
+}
+
+function buildCard(t) {
+  const date = new Date(t.created_at).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+  const canEdit   = isHead();
+  const canCreate = isLoggedIn();
+  return `
+    <div class="tt-card" data-id="${t.id}">
+      <div class="card-accent-bar"></div>
+      <a href="view.html?id=${t.id}" class="card-link-area">
+        <div class="card-meta-row">
+          <div class="card-badges">
+            ${t.semester   ? `<span class="badge badge-semester">${escHtml(t.semester)}</span>`   : ''}
+            ${t.department ? `<span class="badge badge-dept">${escHtml(t.department)}</span>` : ''}
+          </div>
+          <span class="card-id">#${String(t.id).padStart(3,'0')}</span>
+        </div>
+        <div class="card-title">${escHtml(t.name)}</div>
+        <div class="card-date">Created ${date}</div>
+        <div class="card-stats">
+          <div class="c-stat"><div class="c-stat-value">${t.teacher_count??0}</div><div class="c-stat-label">Teachers</div></div>
+          <div class="c-stat"><div class="c-stat-value">${t.slot_count??0}</div><div class="c-stat-label">Slots</div></div>
+          <div class="c-stat"><div class="c-stat-value">${t.day_count??0}</div><div class="c-stat-label">Days</div></div>
+        </div>
+      </a>
+      <div class="card-actions">
+        <a class="btn btn-view" href="view.html?id=${t.id}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> View
+        </a>
+        ${canEdit ? `
+        <a class="btn btn-edit" href="edit.html?id=${t.id}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit
+        </a>
+        <button class="btn btn-duplicate" onclick="event.stopPropagation();openDupModal(${t.id},'${escAttr(t.name)}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy
+        </button>` : ''}
+        <div class="export-wrap">
+          <button class="btn btn-export" onclick="event.stopPropagation()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export ▾
+          </button>
+          <div class="export-dropdown">
+            <button class="export-opt" onclick="exportCSV(${t.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg>CSV</button>
+            <button class="export-opt" onclick="exportPDF(${t.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF</button>
+            <button class="export-opt" onclick="exportIcal(${t.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>iCal</button>
+          </div>
+        </div>
+        ${canEdit ? `
+        <button class="btn btn-delete" onclick="event.stopPropagation();openDeleteModal(${t.id},'${escAttr(t.name)}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg> Delete
+        </button>` : ''}
+      </div>
+    </div>`;
+}
+
+async function loadConflictBadges() {
+  try {
+    const res  = await fetch(`${API}/conflicts-summary`);
+    const json = await res.json();
+    if (!json.success) return;
+    new Set(json.conflict_timetable_ids.map(Number)).forEach(id => {
+      const card = document.querySelector(`.tt-card[data-id="${id}"]`);
+      if (card && !card.querySelector('.conflict-badge')) {
+        const b = document.createElement('div');
+        b.className = 'conflict-badge'; b.title = 'Slot conflict with another timetable'; b.textContent = 'CONFLICT';
+        card.appendChild(b);
+      }
+    });
+  } catch {}
+}
+
+function renderPagination(total) {
+  const bar = document.getElementById('paginationBar');
+  if (totalPages <= 1) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  let html = `<button class="page-btn" onclick="loadPage(${currentPage-1})" ${currentPage<=1?'disabled':''}>← Prev</button>`;
+  for (let p = 1; p <= totalPages; p++) {
+    if (totalPages > 7 && Math.abs(p - currentPage) > 2 && p !== 1 && p !== totalPages) {
+      if (p === 2 || p === totalPages - 1) html += `<span class="page-info">…</span>`;
+      continue;
+    }
+    html += `<button class="page-btn ${p===currentPage?'active':''}" onclick="loadPage(${p})">${p}</button>`;
+  }
+  html += `<button class="page-btn" onclick="loadPage(${currentPage+1})" ${currentPage>=totalPages?'disabled':''}>Next →</button>`;
+  html += `<span class="page-info">Page ${currentPage} of ${totalPages}</span>`;
+  bar.innerHTML = html;
+}
+
+function toggleSort() {
+  sortAsc = !sortAsc;
+  document.getElementById('sortLabel').textContent = sortAsc ? 'Oldest First' : 'Newest First';
+  renderGrid(allTimetables.length);
+}
+
+function openDeleteModal(id, name) {
+  pendingDeleteId = id;
+  document.getElementById('deleteModalName').textContent = `"${name}"`;
+  document.getElementById('deleteModal').classList.add('active');
+
+  document.getElementById('confirmDeleteBtn').onclick = () => {
+    closeModal('deleteModal');
+    const card = document.querySelector(`.tt-card[data-id="${id}"]`);
+    if (card) { card.style.opacity = '.3'; card.style.pointerEvents = 'none'; card.style.transition = 'opacity .3s'; }
+
+    let undone = false;
+    showUndoToast(`"${name}" will be deleted`, 5000, () => {
+      undone = true;
+      if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+    });
+
+    setTimeout(async () => {
+      if (undone) return;
+      try { await authFetch(`${API}/timetables/${id}`, { method: 'DELETE' }); } catch {}
+      loadPage(currentPage);
+    }, 5200);
+  };
+}
+
+function openDupModal(id, name) {
+  pendingDupId = id;
+  document.getElementById('dupNameInput').value = `${name} (Copy)`;
+  document.getElementById('dupModal').classList.add('active');
+  setTimeout(() => document.getElementById('dupNameInput').focus(), 100);
+
+  document.getElementById('confirmDupBtn').onclick = async () => {
+    const newName = document.getElementById('dupNameInput').value.trim();
+    if (!newName) { showToast('Please enter a name', 'error'); return; }
+    closeModal('dupModal');
+    try {
+      await authFetch(`${API}/timetables/${pendingDupId}/duplicate`, {
+        method:'POST',
+        body: JSON.stringify({ name: newName })
+      });
+    } catch {}
+    showToast(`Duplicated as "${newName}"`, 'success');
+    loadPage(1);
+  };
+}
+
+function exportCSV(id)  { dl(`${API}/timetables/${id}/export/csv`,  `timetable_${id}.csv`);  showToast('CSV download started', 'success'); }
+function exportPDF(id)  { dl(`${API}/timetables/${id}/export/pdf`,  `timetable_${id}.pdf`);  showToast('PDF download started', 'success'); }
+function exportIcal(id) { dl(`${API}/timetables/${id}/export/ical`, `timetable_${id}.ics`);  showToast('iCal downloaded — import into Google Calendar', 'info'); }
+function dl(url, fn) { const a = document.createElement('a'); a.href = url; a.download = fn; a.click(); }
+
+async function openAuditModal() {
+  document.getElementById('auditModal').classList.add('active');
+  document.getElementById('auditLogBody').innerHTML = '<div style="text-align:center;color:var(--slate-400);padding:24px;font-size:13px;">Loading…</div>';
+  try {
+    const res  = await fetch(`${API}/audit-log?limit=30`);
+    const json = await res.json();
+    if (!json.success || !json.data.length) {
+      document.getElementById('auditLogBody').innerHTML = '<div style="text-align:center;color:var(--slate-400);padding:24px;font-size:13px;">No audit entries yet.</div>';
+      return;
+    }
+    document.getElementById('auditLogBody').innerHTML = json.data.map(e => `
+      <div class="audit-entry">
+        <span class="audit-action ${escHtml(e.action)}">${escHtml(e.action)}</span>
+        <div class="audit-detail">${escHtml(e.detail)}${e.timetable_id ? ` <span style="color:var(--slate-400);font-size:11px">(#${e.timetable_id})</span>` : ''}</div>
+        <span class="audit-time">${fmtTime(e.created_at)}</span>
+      </div>`).join('');
+  } catch {
+    document.getElementById('auditLogBody').innerHTML = '<div style="text-align:center;color:var(--slate-400);padding:24px;font-size:13px;">Backend offline.</div>';
+  }
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) o.classList.remove('active'); }));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active')); });
+
+function showToast(msg, type = 'info') {
+  const c = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  const icons = {success:'✓', error:'✕', info:'ℹ'};
+  const cols  = {success:'var(--green-400)', error:'var(--red-400)', info:'var(--blue-400)'};
+  t.innerHTML = `<span style="color:${cols[type]};flex-shrink:0">${icons[type]}</span><span style="flex:1">${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+function showUndoToast(msg, duration, onUndo) {
+  const c = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = 'toast undo-toast';
+  t.innerHTML = `
+    <span style="color:var(--red-400);flex-shrink:0">🗑</span>
+    <span style="flex:1">${msg}</span>
+    <button id="undoBtn" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);color:var(--white);padding:4px 12px;border-radius:4px;cursor:pointer;font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;flex-shrink:0;transition:background .15s;">UNDO</button>
+    <div class="undo-bar" style="width:100%;transition:width ${duration}ms linear;"></div>`;
+  c.appendChild(t);
+  t.querySelector('#undoBtn').addEventListener('click', () => { t.remove(); onUndo(); });
+  requestAnimationFrame(() => requestAnimationFrame(() => { const bar = t.querySelector('.undo-bar'); if (bar) bar.style.width = '0%'; }));
+  setTimeout(() => { if (t.parentNode) t.remove(); }, duration + 400);
+}
+
+function showLoading(on) {
+  document.getElementById('loadingGrid').style.display   = on ? '' : 'none';
+  document.getElementById('timetableGrid').style.display = on ? 'none' : 'grid';
+}
+
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return String(s||'').replace(/'/g,"\\'"); }
+function fmtTime(ds) { try { return new Date(ds).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}); } catch { return ds; } }
+</script>
+
+<section class="about-section">
+  <div class="about-wrap">
+    <div class="about-accent"></div>
+    <div class="about-inner">
+
+      <!-- Left: project info -->
+      <div class="about-left">
+        <div class="about-eyebrow">About this Project</div>
+        <h2 class="about-title">Built by <span>Students,</span><br>for Students</h2>
+        <p class="about-desc">
+          This AI Timetable Planner is a college project developed as part of our
+          <strong>6th Semester curriculum</strong>. It uses AI to automatically
+          generate and manage conflict-free academic timetables —
+          eliminating the manual effort of scheduling across departments and
+          ensuring every teacher, subject, and time slot fits together perfectly.
+        </p>
+        <div class="about-meta">
+          <span class="about-tag">Computer Branch</span>
+          <span class="about-tag">6th Semester</span>
+          <span class="about-tag">2023 Batch</span>
+          <span class="about-tag">AI Powered</span>
+        </div>
+      </div>
+
+      <!-- Right: team members -->
+      <div class="about-right">
+        <div class="team-eyebrow">Project Team</div>
+        <div class="team-grid">
+
+          <div class="team-card">
+            <div class="team-avatar" style="background:rgba(91,163,217,0.12);color:#5ba3d9;border-color:rgba(91,163,217,0.25)">R</div>
+            <div class="team-info">
+              <div class="team-name">Rajat</div>
+              <div class="team-roll">Roll No. <span class="team-arrow">→</span> 230070800042</div>
+            </div>
+          </div>
+
+          <div class="team-card">
+            <div class="team-avatar" style="background:rgba(78,201,148,0.12);color:#4ec994;border-color:rgba(78,201,148,0.25)">R</div>
+            <div class="team-info">
+              <div class="team-name">Ravinder</div>
+              <div class="team-roll">Roll No. <span class="team-arrow">→</span> 230070800046</div>
+            </div>
+          </div>
+
+          <div class="team-card">
+            <div class="team-avatar" style="background:rgba(240,192,96,0.12);color:#f0c060;border-color:rgba(240,192,96,0.25)">U</div>
+            <div class="team-info">
+              <div class="team-name">Umesh</div>
+              <div class="team-roll">Roll No. <span class="team-arrow">→</span> 230070800058</div>
+            </div>
+          </div>
+
+          <div class="team-card">
+            <div class="team-avatar" style="background:rgba(155,121,212,0.12);color:#9b79d4;border-color:rgba(155,121,212,0.25)">V</div>
+            <div class="team-info">
+              <div class="team-name">Varun</div>
+              <div class="team-roll">Roll No. <span class="team-arrow">→</span> 230070800062</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<footer style="position:relative;z-index:1;text-align:center;padding:40px 32px 28px;border-top:1px solid rgba(240,192,96,0.07);margin-top:20px;">
+  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:rgba(143,163,190,0.35);">✦ AI Timetable Planner &nbsp;·&nbsp; Academic Scheduling System</span>
+</footer>
+</body>
+</html>

@@ -1,0 +1,311 @@
+<html>
+<head>
+  <title>Audit Log — AI Timetable Planner</title>
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --navy-950:#05090f; --navy-900:#0a1220; --navy-800:#0f1e35; --navy-700:#162845;
+      --gold-400:#f0c060; --gold-300:#f5d080; --gold-500:#c8962a;
+      --slate-400:#8fa3be; --slate-300:#b5c7d8; --white:#f0f4f8;
+      --red-400:#e05c5c; --green-400:#4ec994; --blue-400:#5ba3d9;
+      --violet-400:#9b79d4; --teal-400:#3ac4b8;
+      --font-display:'Playfair Display',Georgia,serif;
+      --font-body:'IBM Plex Sans',sans-serif;
+      --font-mono:'IBM Plex Mono',monospace;
+      --radius:12px; --radius-sm:6px; --t:0.22s cubic-bezier(.4,0,.2,1);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:var(--font-body);background:var(--navy-950);color:var(--white);min-height:100vh;}
+    body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+      background:radial-gradient(ellipse 70% 55% at 5% 5%,rgba(35,66,120,0.3) 0%,transparent 60%),
+      radial-gradient(ellipse 50% 40% at 95% 90%,rgba(200,150,42,0.06) 0%,transparent 55%);}
+    .page{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:0 32px 100px;}
+
+    /* NAV */
+    .topnav{display:flex;align-items:center;justify-content:space-between;padding:28px 0 0;margin-bottom:44px;}
+    .back-link{display:inline-flex;align-items:center;gap:8px;color:var(--slate-400);text-decoration:none;font-size:13px;font-weight:500;transition:color var(--t);}
+    .back-link:hover{color:var(--gold-300);}
+    .back-link svg{width:16px;height:16px;}
+    .topnav-brand{font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-400);}
+
+    /* HEADER */
+    .page-header{margin-bottom:36px;padding-bottom:28px;border-bottom:1px solid rgba(240,192,96,0.1);}
+    .page-eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-400);margin-bottom:10px;}
+    .page-title{font-family:var(--font-display);font-size:clamp(26px,3.5vw,40px);font-weight:700;color:var(--white);}
+    .page-title span{color:var(--gold-400);}
+    .page-subtitle{margin-top:8px;font-size:14px;font-weight:300;color:var(--slate-400);}
+
+    /* TOOLBAR */
+    .toolbar{display:flex;gap:10px;margin-bottom:28px;flex-wrap:wrap;align-items:center;}
+    .filter-select{padding:9px 34px 9px 13px;background:var(--navy-800);border:1px solid rgba(240,192,96,0.12);border-radius:var(--radius-sm);color:var(--white);font-family:var(--font-body);font-size:13px;outline:none;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%238fa3be' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;transition:border-color var(--t);}
+    .filter-select:focus{border-color:rgba(240,192,96,0.45);box-shadow:0 0 0 3px rgba(240,192,96,0.08);}
+    .filter-select option{background:var(--navy-900);}
+    .search-wrap{position:relative;flex:1;min-width:180px;}
+    .search-wrap svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--slate-400);pointer-events:none;}
+    .search-input{width:100%;padding:9px 12px 9px 36px;background:var(--navy-800);border:1px solid rgba(240,192,96,0.12);border-radius:var(--radius-sm);color:var(--white);font-family:var(--font-body);font-size:13px;outline:none;transition:border-color var(--t);}
+    .search-input::placeholder{color:var(--slate-400);}
+    .search-input:focus{border-color:rgba(240,192,96,0.45);box-shadow:0 0 0 3px rgba(240,192,96,0.08);}
+    .result-count{font-family:var(--font-mono);font-size:11px;color:var(--slate-400);margin-left:auto;}
+
+    /* STATS ROW */
+    .stats-row{display:flex;gap:2px;background:var(--navy-900);border:1px solid rgba(240,192,96,0.12);border-radius:var(--radius);overflow:hidden;margin-bottom:28px;box-shadow:0 1px 0 rgba(255,255,255,0.04) inset,0 4px 20px rgba(0,0,0,0.2);}
+    .sstat{flex:1;padding:14px 18px;display:flex;flex-direction:column;gap:3px;border-right:1px solid rgba(240,192,96,0.07);transition:background var(--t);}
+    .sstat:last-child{border-right:none;}
+    .sstat:hover{background:rgba(35,66,120,0.3);}
+    .sstat-val{font-family:var(--font-mono);font-size:24px;font-weight:600;color:var(--gold-400);line-height:1;letter-spacing:-.02em;}
+    .sstat-lbl{font-size:10px;color:var(--slate-400);text-transform:uppercase;letter-spacing:.12em;}
+
+    /* FEED */
+    .feed{background:var(--navy-900);border:1px solid rgba(240,192,96,0.12);border-radius:var(--radius);overflow:hidden;box-shadow:0 1px 0 rgba(255,255,255,0.04) inset,0 4px 24px rgba(0,0,0,0.2);}
+    .feed-header{display:flex;align-items:center;gap:12px;padding:14px 20px;background:rgba(240,192,96,0.04);border-bottom:1px solid rgba(240,192,96,0.08);}
+    .feed-title{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:var(--gold-400);}
+    .feed-count{font-family:var(--font-mono);font-size:10px;color:var(--slate-400);margin-left:auto;}
+
+    .entry{display:grid;grid-template-columns:auto 1fr auto;gap:16px;padding:14px 20px;border-bottom:1px solid rgba(240,192,96,0.05);align-items:start;transition:background var(--t);animation:entryIn .3s ease both;}
+    .entry:last-child{border-bottom:none;}
+    .entry:hover{background:rgba(240,192,96,0.025);}
+    @keyframes entryIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+
+    .entry-action{font-family:var(--font-mono);font-size:10px;padding:3px 9px;border-radius:12px;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;flex-shrink:0;margin-top:2px;}
+    .entry-action.create    {background:rgba(78,201,148,0.12);color:var(--green-400);border:1px solid rgba(78,201,148,0.25);}
+    .entry-action.update    {background:rgba(91,163,217,0.12);color:var(--blue-400);border:1px solid rgba(91,163,217,0.25);}
+    .entry-action.delete    {background:rgba(224,92,92,0.12);color:var(--red-400);border:1px solid rgba(224,92,92,0.25);}
+    .entry-action.regenerate{background:rgba(240,192,96,0.12);color:var(--gold-400);border:1px solid rgba(240,192,96,0.28);}
+    .entry-action.duplicate {background:rgba(155,121,212,0.12);color:var(--violet-400);border:1px solid rgba(155,121,212,0.25);}
+
+    .entry-body{min-width:0;}
+    .entry-detail{font-size:13px;color:var(--slate-300);line-height:1.5;word-break:break-word;}
+    .entry-tt-id{font-family:var(--font-mono);font-size:11px;color:var(--slate-400);margin-top:3px;}
+    .entry-tt-link{color:var(--gold-400);text-decoration:none;transition:color var(--t);}
+    .entry-tt-link:hover{color:var(--gold-300);text-decoration:underline;}
+
+    .entry-time{font-family:var(--font-mono);font-size:11px;color:var(--slate-400);white-space:nowrap;text-align:right;padding-top:2px;}
+    .entry-date{font-size:10px;color:var(--slate-400);opacity:.7;margin-top:2px;}
+
+    /* EMPTY / LOADING */
+    .empty{padding:60px 40px;text-align:center;color:var(--slate-400);}
+    .empty svg{width:40px;height:40px;opacity:.3;margin-bottom:14px;}
+    .empty p{font-size:14px;}
+    .skeleton-entry{display:flex;gap:16px;padding:14px 20px;border-bottom:1px solid rgba(240,192,96,0.05);}
+    .sk{background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.11) 50%,rgba(255,255,255,0.04) 75%);background-size:200% 100%;animation:shimmer 1.3s infinite;border-radius:4px;}
+    @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+    /* LOAD MORE */
+    .load-more-row{display:flex;justify-content:center;padding:18px;}
+    .btn-load-more{padding:10px 28px;background:rgba(240,192,96,0.03);border:1px solid rgba(240,192,96,0.22);border-radius:var(--radius-sm);color:var(--gold-400);font-family:var(--font-body);font-size:13px;cursor:pointer;transition:all var(--t);}
+    .btn-load-more:hover{background:rgba(240,192,96,0.09);border-color:rgba(240,192,96,0.45);transform:translateY(-1px);box-shadow:0 4px 14px rgba(240,192,96,0.12);}
+    .btn-load-more:disabled{opacity:.4;cursor:not-allowed;}
+
+    /* TOAST */
+    .toast-c{position:fixed;bottom:28px;right:28px;z-index:9999;display:flex;flex-direction:column;gap:8px;}
+    .toast{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--navy-800);border-radius:var(--radius-sm);font-size:13px;box-shadow:0 12px 36px rgba(0,0,0,.5),0 1px 0 rgba(255,255,255,.06) inset;border:1px solid rgba(255,255,255,.09);animation:toastIn .3s cubic-bezier(.34,1.4,.64,1);}
+    .toast.e{border-left:3px solid var(--red-400);}
+    .toast.i{border-left:3px solid var(--blue-400);}
+    @keyframes toastIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:translateX(0)}}
+
+    @media(max-width:600px){
+      .page{padding:0 16px 80px;}
+      .stats-row{flex-wrap:wrap;}
+      .sstat{min-width:50%;border-right:none;border-bottom:1px solid rgba(240,192,96,0.07);}
+      .entry{grid-template-columns:auto 1fr;}
+      .entry-time{display:none;}
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <nav class="topnav">
+    <a href="index.html" class="back-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+      All Timetables
+    </a>
+    <span class="topnav-brand">✦ AI Timetable Planner</span>
+  </nav>
+
+  <div class="page-header">
+    <div class="page-eyebrow">System History</div>
+    <h1 class="page-title">Audit <span>Log</span></h1>
+    <p class="page-subtitle">A complete, timestamped record of every create, edit, delete, duplicate and regeneration event across all timetables.</p>
+  </div>
+
+  
+  <div class="stats-row">
+    <div class="sstat"><div class="sstat-val" id="statTotal">—</div><div class="sstat-lbl">Total Events</div></div>
+    <div class="sstat"><div class="sstat-val" id="statCreates">—</div><div class="sstat-lbl">Created</div></div>
+    <div class="sstat"><div class="sstat-val" id="statUpdates">—</div><div class="sstat-lbl">Updated</div></div>
+    <div class="sstat"><div class="sstat-val" id="statDeletes">—</div><div class="sstat-lbl">Deleted</div></div>
+    <div class="sstat"><div class="sstat-val" id="statRegens">—</div><div class="sstat-lbl">Regenerated</div></div>
+  </div>
+
+  
+  <div class="toolbar">
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input class="search-input" id="searchInput" type="text" placeholder="Search events…" />
+    </div>
+    <select class="filter-select" id="actionFilter">
+      <option value="">All Actions</option>
+      <option value="create">Create</option>
+      <option value="update">Update</option>
+      <option value="delete">Delete</option>
+      <option value="regenerate">Regenerate</option>
+      <option value="duplicate">Duplicate</option>
+    </select>
+    <span class="result-count" id="resultCount"></span>
+  </div>
+
+  
+  <div class="feed">
+    <div class="feed-header">
+      <span class="feed-title">Event Feed</span>
+      <span class="feed-count" id="feedCount"></span>
+    </div>
+    <div id="feedBody">
+      
+      <div class="skeleton-entry"><div class="sk" style="width:70px;height:20px;flex-shrink:0"></div><div style="flex:1;display:flex;flex-direction:column;gap:6px"><div class="sk" style="height:14px;width:85%"></div><div class="sk" style="height:10px;width:40%"></div></div></div>
+      <div class="skeleton-entry"><div class="sk" style="width:70px;height:20px;flex-shrink:0"></div><div style="flex:1;display:flex;flex-direction:column;gap:6px"><div class="sk" style="height:14px;width:70%"></div><div class="sk" style="height:10px;width:35%"></div></div></div>
+      <div class="skeleton-entry"><div class="sk" style="width:70px;height:20px;flex-shrink:0"></div><div style="flex:1;display:flex;flex-direction:column;gap:6px"><div class="sk" style="height:14px;width:78%"></div><div class="sk" style="height:10px;width:30%"></div></div></div>
+    </div>
+  </div>
+
+</div>
+<div class="toast-c" id="toastC"></div>
+
+<script>
+const API = API_BASE;
+const LOAD_BATCH = 50;
+
+let allEntries    = [];
+let filtered      = [];
+let displayCount  = LOAD_BATCH;
+let searchTimer   = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderAuthBar('.topnav');
+  if (!requireHead()) return;
+  load();
+  document.getElementById('searchInput').addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(applyFilter, 250);
+  });
+  document.getElementById('actionFilter').addEventListener('change', applyFilter);
+});
+
+async function load() {
+  try {
+    const res  = await authFetch(`${API}/audit-log?limit=500`);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error);
+    allEntries = json.data;
+    renderStats();
+    applyFilter();
+  } catch (e) {
+    document.getElementById('feedBody').innerHTML = `
+      <div class="empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <p>Could not load audit log.<br>Make sure the Flask backend is running: <code style="font-family:monospace;font-size:12px;background:rgba(255,255,255,0.07);padding:2px 6px;border-radius:3px">python app.py</code></p>
+      </div>`;
+    toast(`Backend error: ${e.message}`, 'e');
+  }
+}
+
+function renderStats() {
+  const counts = { create:0, update:0, delete:0, regenerate:0 };
+  allEntries.forEach(e => { if (counts[e.action] !== undefined) counts[e.action]++; });
+  anim('statTotal',   allEntries.length);
+  anim('statCreates', counts.create);
+  anim('statUpdates', counts.update);
+  anim('statDeletes', counts.delete);
+  anim('statRegens',  counts.regenerate);
+}
+
+function anim(id, target) {
+  const el = document.getElementById(id);
+  let n = 0;
+  const step = Math.max(1, Math.ceil(target / 25));
+  const iv = setInterval(() => { n = Math.min(n + step, target); el.textContent = n; if (n >= target) clearInterval(iv); }, 40);
+}
+
+function applyFilter() {
+  const q      = document.getElementById('searchInput').value.toLowerCase();
+  const action = document.getElementById('actionFilter').value;
+  displayCount = LOAD_BATCH;
+
+  filtered = allEntries.filter(e =>
+    (!action || e.action === action) &&
+    (!q || e.detail.toLowerCase().includes(q) || e.action.includes(q) || String(e.timetable_id).includes(q))
+  );
+
+  document.getElementById('resultCount').textContent = `${filtered.length} event${filtered.length !== 1 ? 's' : ''}`;
+  renderFeed();
+}
+
+function renderFeed() {
+  const body = document.getElementById('feedBody');
+
+  if (!filtered.length) {
+    body.innerHTML = `<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><p>No events match your filter.</p></div>`;
+    document.getElementById('feedCount').textContent = '';
+    return;
+  }
+
+  const visible = filtered.slice(0, displayCount);
+  const more    = filtered.length - visible.length;
+
+  document.getElementById('feedCount').textContent = `${filtered.length} event${filtered.length !== 1 ? 's' : ''}`;
+
+  let html = visible.map((e, idx) => {
+    const style = `animation-delay:${Math.min(idx * 0.025, 0.4)}s`;
+    const ttLink = e.timetable_id > 0
+      ? `<a href="view.html?id=${e.timetable_id}" class="entry-tt-link">#${String(e.timetable_id).padStart(4,'0')} — view timetable →</a>`
+      : '';
+    return `
+      <div class="entry" style="${style}">
+        <span class="entry-action ${esc(e.action)}">${esc(e.action)}</span>
+        <div class="entry-body">
+          <div class="entry-detail">${esc(e.detail)}</div>
+          ${ttLink ? `<div class="entry-tt-id">${ttLink}</div>` : ''}
+        </div>
+        <div class="entry-time">
+          <div>${fmtTime(e.created_at)}</div>
+          <div class="entry-date">${fmtDate(e.created_at)}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  if (more > 0) {
+    html += `<div class="load-more-row"><button class="btn-load-more" onclick="loadMore()">Load ${Math.min(more, LOAD_BATCH)} more (${more} remaining)</button></div>`;
+  }
+
+  body.innerHTML = html;
+}
+
+function loadMore() {
+  displayCount += LOAD_BATCH;
+  renderFeed();
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtTime(ds) { try { return new Date(ds).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}); } catch { return ''; } }
+function fmtDate(ds) { try { return new Date(ds).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}); } catch { return ds; } }
+
+function toast(msg, type = 'i') {
+  const c = document.getElementById('toastC');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+</script>
+
+<footer style="position:relative;z-index:1;text-align:center;padding:40px 32px 28px;border-top:1px solid rgba(240,192,96,0.07);margin-top:20px;">
+  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:rgba(143,163,190,0.35);">✦ AI Timetable Planner &nbsp;·&nbsp; Academic Scheduling System</span>
+</footer>
+</body>
+</html>
