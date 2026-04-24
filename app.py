@@ -542,11 +542,12 @@ def export_pdf(timetable_id):
         return jsonify({"success": False, "error": "Timetable not found"}), 404
 
     try:
-        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib.pagesizes import A4
         from reportlab.lib import colors
         from reportlab.lib.units import cm
         from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT
     except ImportError:
         return jsonify({"success": False,
                         "error": "reportlab not installed. Run: pip install reportlab"}), 500
@@ -557,92 +558,135 @@ def export_pdf(timetable_id):
     times = sorted({s["time_slot"] for s in slots},
                    key=lambda t: int(t.split(":")[0]))
 
+    # Build lookup: day -> time_slot -> slot
     lookup = {}
     for s in slots:
         lookup.setdefault(s["day"], {}).setdefault(s["time_slot"], s)
 
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=landscape(A4),
-                            leftMargin=1*cm, rightMargin=1*cm,
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                            leftMargin=1.5*cm, rightMargin=1.5*cm,
                             topMargin=1.5*cm, bottomMargin=1.5*cm)
+
+    NAVY  = colors.HexColor("#0a1220")
+    GOLD  = colors.HexColor("#f0c060")
+    PALE  = colors.HexColor("#dce8f4")
+    WHITE = colors.white
+    BLACK = colors.black
+
     styles = getSampleStyleSheet()
-    NAVY = colors.HexColor("#0a1220")
-    GOLD = colors.HexColor("#f0c060")
-    PALE = colors.HexColor("#e8f0f8")
 
-    title_style = ParagraphStyle("title", parent=styles["Heading1"],
-                                  textColor=NAVY, fontSize=16, spaceAfter=4)
-    meta_style  = ParagraphStyle("meta",  parent=styles["Normal"],
-                                  textColor=colors.HexColor("#607890"),
-                                  fontSize=10, spaceAfter=16)
-    cell_style  = ParagraphStyle("cell",  parent=styles["Normal"],
-                                  fontSize=8, leading=10)
+    dept_style = ParagraphStyle("dept", fontName="Helvetica-Bold",
+                                fontSize=11, alignment=TA_CENTER, spaceAfter=2)
+    title_style = ParagraphStyle("title", fontName="Helvetica-Bold",
+                                 fontSize=14, alignment=TA_CENTER, spaceAfter=2)
+    meta_style  = ParagraphStyle("meta", fontName="Helvetica",
+                                 fontSize=9, alignment=TA_CENTER, spaceAfter=10)
 
+    gen_date = timetable['created_at'][:10]
     elements = [
-        Paragraph(timetable["name"], title_style),
-        Paragraph(f"{timetable['department']}  ·  {timetable['semester']}  ·  "
-                  f"Generated: {timetable['created_at'][:10]}", meta_style),
+        Paragraph(timetable['department'] or "Department", dept_style),
+        Paragraph("Time Table", title_style),
+        Paragraph(f"{timetable['name']}  ·  {timetable['semester']}  ·  w.e.f {gen_date}", meta_style),
+        Spacer(1, 0.3*cm),
     ]
 
-    header_row = ["Time"] + days
-    table_data = [header_row]
-    for time_slot in times:
-        row = [Paragraph(f"<b>{time_slot}</b>", cell_style)]
-        for day in days:
-            s = lookup.get(day, {}).get(time_slot)
+    # ── Build table rows with DAY spanning multiple periods ──────────────
+    # Layout: DAY | PERIOD | SUBJECT (TEACHER)
+    # DAY column spans all periods for that day using SPAN commands.
+
+    cell_c = ParagraphStyle("cc", fontName="Helvetica-Bold",
+                             fontSize=9, alignment=TA_CENTER)
+    period_c = ParagraphStyle("pc", fontName="Helvetica",
+                              fontSize=8, alignment=TA_CENTER)
+    slot_c  = ParagraphStyle("sc", fontName="Helvetica",
+                              fontSize=8, alignment=TA_CENTER, leading=11)
+
+    # Header
+    table_data = [[
+        Paragraph("<b>DAY</b>", cell_c),
+        Paragraph("<b>PERIOD</b>", cell_c),
+        Paragraph(f"<b>{timetable['name']}</b>", cell_c),
+    ]]
+
+    span_cmds = []   # (day, start_row, end_row) for SPAN commands
+    row_idx   = 1    # current row index in table_data (header is row 0)
+
+    for day in days:
+        day_start = row_idx
+        for ts in times:
+            s = lookup.get(day, {}).get(ts)
             if s:
-                text = (f"<b>{s['subject_name']}</b><br/>"
-                        f"<font size='7'>{s['teacher_name']}</font><br/>"
-                        f"<font size='7' color='grey'>"
-                        f"{s['branch_name']} · {s['type']}</font>")
-                row.append(Paragraph(text, cell_style))
+                cell_text = (f"<b>{s['subject_name']}</b><br/>"
+                             f"<font size='7'>{s['teacher_name']}</font>")
             else:
-                row.append("")
-        table_data.append(row)
+                cell_text = ""
 
-    col_widths = [2.8*cm] + [2.6*cm] * len(days)
-    grid = Table(table_data, colWidths=col_widths, repeatRows=1)
-    grid.setStyle(TableStyle([
-        ("BACKGROUND",     (0, 0), (-1, 0),  NAVY),
-        ("TEXTCOLOR",      (0, 0), (-1, 0),  GOLD),
-        ("FONTNAME",       (0, 0), (-1, 0),  "Helvetica-Bold"),
-        ("FONTSIZE",       (0, 0), (-1, 0),  9),
-        ("ALIGN",          (0, 0), (-1, 0),  "CENTER"),
-        ("VALIGN",         (0, 0), (-1, 0),  "MIDDLE"),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, PALE]),
-        ("GRID",           (0, 0), (-1, -1), 0.5, colors.HexColor("#c8d8e8")),
-        ("ROWHEIGHT",      (0, 0), (-1, -1), 40),
-        ("VALIGN",         (0, 1), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING",    (0, 0), (-1, -1), 4),
-        ("RIGHTPADDING",   (0, 0), (-1, -1), 4),
-        ("TOPPADDING",     (0, 0), (-1, -1), 3),
-        ("BOTTOMPADDING",  (0, 0), (-1, -1), 3),
-    ]))
+            table_data.append([
+                Paragraph(day, cell_c),           # DAY col (will be spanned)
+                Paragraph(ts, period_c),           # PERIOD col
+                Paragraph(cell_text, slot_c),      # SUBJECT col
+            ])
+            row_idx += 1
+
+        day_end = row_idx - 1
+        if day_end > day_start:
+            span_cmds.append(("SPAN", (0, day_start), (0, day_end)))
+
+    # ── Column widths for portrait A4 ───────────────────────────────────
+    usable_w = A4[0] - 3*cm   # ~15 cm usable
+    col_w = [2.8*cm, 3.2*cm, usable_w - 2.8*cm - 3.2*cm]
+
+    grid = Table(table_data, colWidths=col_w, repeatRows=1)
+
+    n_rows = len(table_data)
+
+    style_cmds = [
+        # Header row
+        ("BACKGROUND",  (0, 0), (-1, 0),       NAVY),
+        ("TEXTCOLOR",   (0, 0), (-1, 0),       GOLD),
+        ("FONTNAME",    (0, 0), (-1, 0),       "Helvetica-Bold"),
+        ("FONTSIZE",    (0, 0), (-1, 0),       9),
+        ("ALIGN",       (0, 0), (-1, 0),       "CENTER"),
+        ("VALIGN",      (0, 0), (-1, 0),       "MIDDLE"),
+
+        # Body
+        ("FONTSIZE",    (0, 1), (-1, -1),      8),
+        ("ALIGN",       (0, 1), (-1, -1),      "CENTER"),
+        ("VALIGN",      (0, 1), (-1, -1),      "MIDDLE"),
+        ("ROWHEIGHT",   (0, 0), (-1, -1),      1*cm),
+
+        # Alternating row bg (period+subject cols only, col 1 and 2)
+        ("ROWBACKGROUNDS", (1, 1), (-1, -1),   [WHITE, PALE]),
+
+        # DAY column always white + bold
+        ("BACKGROUND",  (0, 1), (0, -1),       WHITE),
+        ("FONTNAME",    (0, 1), (0, -1),       "Helvetica-Bold"),
+        ("FONTSIZE",    (0, 1), (0, -1),       8),
+
+        # Grid
+        ("GRID",        (0, 0), (-1, -1),      0.5, colors.HexColor("#aabccc")),
+
+        # Padding
+        ("LEFTPADDING",  (0, 0), (-1, -1),     4),
+        ("RIGHTPADDING", (0, 0), (-1, -1),     4),
+        ("TOPPADDING",   (0, 0), (-1, -1),     3),
+        ("BOTTOMPADDING",(0, 0), (-1, -1),     3),
+    ] + span_cmds
+
+    grid.setStyle(TableStyle(style_cmds))
     elements.append(grid)
-    elements.append(Spacer(1, 0.6*cm))
 
-    elements.append(Paragraph("Teacher Roster",
-                               ParagraphStyle("rh", parent=styles["Heading3"],
-                                              textColor=NAVY, spaceAfter=6)))
-    roster_data = [["Teacher", "Branch", "Subject", "Lectures/wk", "Labs/wk"]]
-    for t in timetable["teachers"]:
-        roster_data.append([t["teacher_name"], t["branch_name"], t["subject_name"],
-                             str(t["no_of_lectures"]), str(t["no_of_labs"])])
+    # ── Footer note ──────────────────────────────────────────────────────
+    note_style = ParagraphStyle("note", fontName="Helvetica",
+                                fontSize=7, alignment=TA_LEFT,
+                                textColor=colors.HexColor("#607890"))
+    elements.append(Spacer(1, 0.4*cm))
+    elements.append(Paragraph(
+        "NOTE: No change without the permission of the undersigned.",
+        note_style
+    ))
 
-    roster = Table(roster_data, colWidths=[5*cm, 3*cm, 5*cm, 3*cm, 3*cm])
-    roster.setStyle(TableStyle([
-        ("BACKGROUND",     (0, 0), (-1, 0),  NAVY),
-        ("TEXTCOLOR",      (0, 0), (-1, 0),  GOLD),
-        ("FONTNAME",       (0, 0), (-1, 0),  "Helvetica-Bold"),
-        ("FONTSIZE",       (0, 0), (-1, 0),  9),
-        ("ALIGN",          (0, 0), (-1, -1), "LEFT"),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, PALE]),
-        ("GRID",           (0, 0), (-1, -1), 0.5, colors.HexColor("#c8d8e8")),
-        ("FONTSIZE",       (0, 1), (-1, -1), 9),
-        ("ROWHEIGHT",      (0, 0), (-1, -1), 22),
-        ("LEFTPADDING",    (0, 0), (-1, -1), 6),
-    ]))
-    elements.append(roster)
     doc.build(elements)
     buf.seek(0)
 
