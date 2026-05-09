@@ -86,6 +86,18 @@
     .brand{font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;
            text-transform:uppercase;color:rgba(143,163,190,0.3);
            margin-top:28px;text-align:center;position:relative;z-index:1;}
+  
+    /* ── SHARED SITE HEADER ───────────────────────────────────────── */
+    .site-header{display:flex;align-items:center;justify-content:space-between;padding:10px 32px;background:rgba(10,18,32,0.96);border-bottom:1px solid rgba(240,192,96,0.12);position:sticky;top:0;z-index:200;backdrop-filter:blur(12px);align-self:stretch;width:100%;}
+    .site-header-brand{font-family:var(--font-display);font-size:18px;font-weight:700;color:var(--white);text-decoration:none;display:flex;align-items:center;gap:8px;transition:color .2s;}
+    .site-header-brand:hover{color:var(--gold-300);}
+    .site-header-brand span{color:var(--gold-400);}
+    .site-header-brand .brand-mono{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-500);margin-right:4px;}
+    .site-header-right{display:flex;align-items:center;gap:10px;}
+    .site-header-login{padding:7px 18px;background:rgba(240,192,96,0.08);border:1px solid rgba(240,192,96,0.25);border-radius:6px;color:var(--gold-400);font-family:var(--font-body);font-size:13px;font-weight:500;text-decoration:none;transition:all .2s;}
+    .site-header-login:hover{background:rgba(240,192,96,0.18);}
+    @media(max-width:600px){.site-header{padding:10px 16px;}}
+
   </style>
 </head>
 <body>
@@ -97,12 +109,12 @@
     <h1 class="card-title">Sign In</h1>
 
     <div class="account-chips">
-      <div class="chip chip-head" id="chipHead" onclick="selectAccount('Head')">
-        <div class="chip-name">Head</div>
+      <div class="chip chip-head" id="chipHead" onclick="selectAccount('admin')">
+        <div class="chip-name">Admin</div>
         <div class="chip-role">Full access</div>
       </div>
-      <div class="chip chip-teacher" id="chipTeacher" onclick="selectAccount('Teacher')">
-        <div class="chip-name">Teacher</div>
+      <div class="chip chip-teacher" id="chipTeacher" onclick="selectAccount('user')">
+        <div class="chip-name">User</div>
         <div class="chip-role">Create timetables</div>
       </div>
     </div>
@@ -112,7 +124,7 @@
     <div class="field">
       <label class="field-label" for="username">Account</label>
       <input type="text" id="username" class="field-input"
-             placeholder="Head  or  Teacher" autocomplete="username" />
+             placeholder="admin  or  user" autocomplete="username" />
     </div>
 
     <div class="field">
@@ -149,8 +161,8 @@ document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); })
 
 document.getElementById('username').addEventListener('input', function() {
   const v = this.value.trim().toLowerCase();
-  document.getElementById('chipHead').classList.toggle('active', v === 'head');
-  document.getElementById('chipTeacher').classList.toggle('active', v === 'teacher');
+  document.getElementById('chipHead').classList.toggle('active', v === 'admin');
+  document.getElementById('chipTeacher').classList.toggle('active', v === 'user');
 });
 
 async function doLogin() {
