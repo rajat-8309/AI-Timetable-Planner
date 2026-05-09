@@ -116,6 +116,18 @@
       .account-grid{grid-template-columns:1fr;}
       .own-pwd-grid{grid-template-columns:1fr;}
     }
+  
+    /* ── SHARED SITE HEADER ───────────────────────────────────────── */
+    .site-header{display:flex;align-items:center;justify-content:space-between;padding:10px 32px;background:rgba(10,18,32,0.96);border-bottom:1px solid rgba(240,192,96,0.12);position:sticky;top:0;z-index:200;backdrop-filter:blur(12px);align-self:stretch;width:100%;}
+    .site-header-brand{font-family:var(--font-display);font-size:18px;font-weight:700;color:var(--white);text-decoration:none;display:flex;align-items:center;gap:8px;transition:color .2s;}
+    .site-header-brand:hover{color:var(--gold-300);}
+    .site-header-brand span{color:var(--gold-400);}
+    .site-header-brand .brand-mono{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-500);margin-right:4px;}
+    .site-header-right{display:flex;align-items:center;gap:10px;}
+    .site-header-login{padding:7px 18px;background:rgba(240,192,96,0.08);border:1px solid rgba(240,192,96,0.25);border-radius:6px;color:var(--gold-400);font-family:var(--font-body);font-size:13px;font-weight:500;text-decoration:none;transition:all .2s;}
+    .site-header-login:hover{background:rgba(240,192,96,0.18);}
+    @media(max-width:600px){.site-header{padding:10px 16px;}}
+
   </style>
 </head>
 <body>
@@ -149,7 +161,7 @@
         <div class="account-card-head-bar"></div>
         <div class="account-card-body">
           <div class="ac-role ac-role-head">✦ Full Access</div>
-          <div class="ac-name">Head</div>
+          <div class="ac-name">Admin</div>
           <div class="ac-perms">
             <span class="perm-yes">✓ Create timetables</span>
             <span class="perm-yes">✓ Edit &amp; delete timetables</span>
@@ -159,7 +171,7 @@
             <span class="perm-yes">✓ Manage passwords</span>
           </div>
           <div class="pwd-section">
-            <div class="pwd-section-label">Reset Head Password</div>
+            <div class="pwd-section-label">Reset Admin Password</div>
             <div class="pwd-row">
               <input type="password" class="pwd-input" id="headPwd1" placeholder="New password" />
               <input type="password" class="pwd-input" id="headPwd2" placeholder="Confirm" />
@@ -178,7 +190,7 @@
         <div class="account-card-teacher-bar"></div>
         <div class="account-card-body">
           <div class="ac-role ac-role-teacher">✎ Limited Access</div>
-          <div class="ac-name">Teacher</div>
+          <div class="ac-name">User</div>
           <div class="ac-perms">
             <span class="perm-yes">✓ Create timetables</span>
             <span class="perm-no">Edit timetables</span>
@@ -188,7 +200,7 @@
             <span class="perm-no">View audit log</span>
           </div>
           <div class="pwd-section">
-            <div class="pwd-section-label">Reset Teacher Password</div>
+            <div class="pwd-section-label">Reset User Password</div>
             <div class="pwd-row">
               <input type="password" class="pwd-input" id="teacherPwd1" placeholder="New password" />
               <input type="password" class="pwd-input" id="teacherPwd2" placeholder="Confirm" />
