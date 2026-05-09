@@ -559,392 +559,199 @@ def export_pdf(timetable_id):
         from reportlab.lib.pagesizes import A4, landscape
         from reportlab.lib import colors
         from reportlab.lib.units import cm, mm
-        from reportlab.platypus import (SimpleDocTemplate, Table, TableStyle,
-                                        Paragraph, Spacer, HRFlowable)
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
         from reportlab.lib.styles import ParagraphStyle
-        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-        from reportlab.platypus.flowables import KeepTogether
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT
     except ImportError:
         return jsonify({"success": False,
                         "error": "reportlab not installed. Run: pip install reportlab"}), 500
-
-    import re as _re
 
     DAY_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
     slots = timetable["slots"]
     days  = [d for d in DAY_ORDER if any(s["day"] == d for s in slots)]
 
-    # Collect all unique time slots, sort by start hour
     all_times = sorted({s["time_slot"] for s in slots},
                        key=lambda t: int(t.split(":")[0]))
 
-    # Build lookup: day -> time_slot -> slot (take first if multiple)
-    lookup: dict = {}
+    lookup = {}
     for s in slots:
         lookup.setdefault(s["day"], {}).setdefault(s["time_slot"], s)
 
-    # ── Merge consecutive same-subject slots (multi-hour labs) ─────────
-    # Returns list of (start_ts, end_ts, slot) after collapsing consecutive blocks
-    def merged_slots_for_day(day):
-        day_slots = []
-        for ts in all_times:
-            s = lookup.get(day, {}).get(ts)
-            day_slots.append((ts, s))
-
-        merged = []
+    def get_merged_rows(day):
+        """Collapse consecutive same-subject slots into one display row."""
+        result = []
         i = 0
-        while i < len(day_slots):
-            ts, s = day_slots[i]
+        while i < len(all_times):
+            ts = all_times[i]
+            s  = lookup.get(day, {}).get(ts)
             if s is None:
-                merged.append((ts, ts, None))
+                result.append((ts, None, 1))
                 i += 1
                 continue
-            # Merge forward if same subject+teacher+type
-            j = i + 1
-            while j < len(day_slots):
-                nts, ns = day_slots[j]
-                # Must be consecutive hour
-                prev_end = int(day_slots[j-1][0].split("-")[1].split(":")[0]) if day_slots[j-1][0] else 0
-                next_start = int(nts.split(":")[0])
-                if prev_end != next_start:
+            span = 1
+            while i + span < len(all_times):
+                next_ts    = all_times[i + span]
+                ns         = lookup.get(day, {}).get(next_ts)
+                cur_end    = int(all_times[i + span - 1].split("-")[1].split(":")[0])
+                next_start = int(next_ts.split(":")[0])
+                if cur_end != next_start:
                     break
                 if (ns and ns["subject_name"] == s["subject_name"]
                         and ns["teacher_name"] == s["teacher_name"]
-                        and ns["type"] == s["type"]):
-                    j += 1
+                        and ns["type"]         == s["type"]):
+                    span += 1
                 else:
                     break
-            end_ts = day_slots[j-1][0]
-            merged.append((ts, end_ts, s))
-            i = j
-        return merged
+            end_ts       = all_times[i + span - 1]
+            period_label = "{}-{}".format(ts.split("-")[0], end_ts.split("-")[1]) if span > 1 else ts
+            result.append((period_label, s, span))
+            i += span
+        return result
 
-    # ── Use landscape A4 for wider table ──────────────────────────────
     PAGE = landscape(A4)
-    buf  = io.BytesIO()
+    LM = RM = 1.2 * cm
+    TM = BM = 1.0 * cm
 
-    # Tight margins to maximise table space
-    LM = RM = 1.2*cm
-    TM = 1.2*cm
-    BM = 1.0*cm
-
+    buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=PAGE,
                             leftMargin=LM, rightMargin=RM,
                             topMargin=TM, bottomMargin=BM)
 
-    # ── Colours ───────────────────────────────────────────────────────
-    NAVY     = colors.HexColor("#0a1220")
-    GOLD     = colors.HexColor("#e8b840")
-    PALE_BG  = colors.HexColor("#eef4fa")
-    ALT_BG   = colors.HexColor("#dde8f2")
-    WHITE    = colors.white
-    DAY_BG   = colors.HexColor("#d0dcea")
     HEAD_BG  = colors.HexColor("#0f1e35")
+    GOLD     = colors.HexColor("#e8b840")
+    DAY_BG   = colors.HexColor("#d0dcea")
+    PER_BG   = colors.HexColor("#e8f0f8")
+    PALE_BG  = colors.white
+    ALT_BG   = colors.HexColor("#eef4fa")
     GRID_COL = colors.HexColor("#9ab4cc")
     NOTE_COL = colors.HexColor("#607890")
+    TEXT_COL = colors.HexColor("#0f2240")
+    TCHR_COL = colors.HexColor("#2a4060")
 
-    # ── Paragraph styles ──────────────────────────────────────────────
-    def ps(name, font="Helvetica", size=8, align=TA_CENTER, **kw):
-        return ParagraphStyle(name, fontName=font, fontSize=size,
-                              alignment=align, leading=size+3, **kw)
+    def mk(name, font="Helvetica", size=8, align=TA_CENTER, **kw):
+        return ParagraphStyle(name, fontName=font, fontSize=size, alignment=align, **kw)
 
-    hdr_s   = ps("hdr",  "Helvetica-Bold", 8,  TA_CENTER, textColor=GOLD)
-    day_s   = ps("day",  "Helvetica-Bold", 8,  TA_CENTER)
-    per_s   = ps("per",  "Helvetica",      7,  TA_CENTER, textColor=colors.HexColor("#3a5070"))
-    slot_s  = ps("slot", "Helvetica-Bold", 8,  TA_CENTER, leading=10)
-    tchr_s  = ps("tchr", "Helvetica",      7,  TA_CENTER, leading=9,
-                  textColor=colors.HexColor("#2a4060"))
-    empty_s = ps("emp",  "Helvetica",      7,  TA_CENTER,
-                  textColor=colors.HexColor("#b0c4d8"))
-
-    inst_s  = ps("inst", "Helvetica-Bold", 9,  TA_CENTER, spaceAfter=1)
-    addr_s  = ps("addr", "Helvetica",      7,  TA_CENTER, spaceAfter=1)
-    dept_s  = ps("dept", "Helvetica-Bold", 11, TA_CENTER, spaceAfter=2)
-    tt_s    = ps("tt",   "Helvetica-Bold", 14, TA_CENTER, spaceAfter=2)
-    meta_s  = ps("meta", "Helvetica",      8,  TA_CENTER, spaceAfter=4)
-    note_s  = ps("note", "Helvetica",      7,  TA_LEFT,
-                  textColor=NOTE_COL, spaceAfter=1)
+    inst_s  = mk("inst",  "Helvetica-Bold", 10)
+    addr_s  = mk("addr",  "Helvetica",       7)
+    dept_s  = mk("dept",  "Helvetica-Bold", 12)
+    tt_s    = mk("tt",    "Helvetica-Bold", 15)
+    meta_s  = mk("meta",  "Helvetica",       8)
+    hdr_s   = mk("hdr",   "Helvetica-Bold",  8, textColor=GOLD)
+    day_s   = mk("day",   "Helvetica-Bold",  8, textColor=TEXT_COL)
+    per_s   = mk("per",   "Helvetica",       7, textColor=TCHR_COL)
+    slot_s  = mk("slot",  "Helvetica-Bold",  8, leading=11)
+    empty_s = mk("emp",   "Helvetica",       7, textColor=colors.HexColor("#aabbcc"))
+    note_s  = mk("note",  "Helvetica",       7, TA_LEFT, textColor=NOTE_COL)
 
     gen_date = timetable["created_at"][:10]
 
-    # ── Header block ──────────────────────────────────────────────────
     elements = [
         Paragraph("Govt. Polytechnic Education Society, Manesar", inst_s),
         Paragraph("(On NH-8, near NSG Camp, Manesar, Gurugram)", addr_s),
-        Spacer(1, 1*mm),
+        Spacer(1, 1 * mm),
         Paragraph(timetable["department"] or "Department", dept_s),
         Paragraph("Time Table", tt_s),
-        Paragraph(
-            f"{timetable['name']}  &nbsp;·&nbsp;  {timetable['semester']}  "
-            f"&nbsp;·&nbsp;  w.e.f {gen_date}",
-            meta_s),
+        Paragraph("{} - {}  -  w.e.f {}".format(
+            timetable["name"], timetable["semester"], gen_date), meta_s),
+        Spacer(1, 2 * mm),
     ]
 
-    # ── Build grid ────────────────────────────────────────────────────
-    # Columns: DAY | PERIOD | subject_col_per_day (only days that have slots)
-    # We use one subject column per day so it mimics the reference image.
+    usable_w   = PAGE[0] - LM - RM
+    DAY_W      = 1.8 * cm
+    PER_W      = 2.8 * cm
+    subj_w     = (usable_w - DAY_W - PER_W) / max(len(days), 1)
+    col_widths  = [DAY_W, PER_W] + [subj_w] * len(days)
 
-    usable_w = PAGE[0] - LM - RM   # total usable width
-
-    # Column widths: DAY=2 cm, PERIOD=2.6 cm, rest split equally among days
-    DAY_W  = 2.0*cm
-    PER_W  = 2.6*cm
-    subj_w = (usable_w - DAY_W - PER_W) / max(len(days), 1)
-
-    col_widths = [DAY_W, PER_W] + [subj_w] * len(days)
-
-    # Header row
     header_row = (
         [Paragraph("<b>DAY</b>",    hdr_s),
          Paragraph("<b>PERIOD</b>", hdr_s)]
-        + [Paragraph(f"<b>{timetable['name']}<br/>{timetable['semester']}</b>", hdr_s)]
-        * len(days)
+        + [Paragraph("<b>{}</b>".format(d), hdr_s) for d in days]
     )
 
-    # We emit one row per unique time-slot, merging consecutive same-subject blocks
-    # across all days simultaneously (simplest approach: enumerate all_times, show merged label)
-
-    # Pre-compute merged blocks per day so we know which rows to skip
-    day_merged = {day: merged_slots_for_day(day) for day in days}
-
-    # Build the list of "display rows" — one per entry in all_times
-    # For each time slot we emit one row; if a slot is part of a merged block
-    # that started at an earlier row, we mark it as "skip"
-    # Approach: re-expand merged blocks back to per-hour rows but annotate rowspan
-
-    # rowspan_at[day][ts_index] = span count (≥1); 0 = skip
-    rowspan_at: dict = {day: {} for day in days}
-    for day in days:
-        merged = day_merged[day]
-        ts_idx = {ts: i for i, ts in enumerate(all_times)}
-        for (start_ts, end_ts, s) in merged:
-            if s is None:
-                rowspan_at[day][ts_idx[start_ts]] = 1
-                continue
-            si = ts_idx[start_ts]
-            ei = ts_idx[end_ts]
-            span = ei - si + 1
-            rowspan_at[day][si] = span
-            for k in range(si+1, ei+1):
-                rowspan_at[day][k] = 0   # skip
-
     table_rows = [header_row]
-    span_cmds  = []   # SPAN commands for TableStyle
-
-    row_idx = 1  # header = row 0
-
-    for ti, ts in enumerate(all_times):
-        cells = [
-            Paragraph(ts, per_s)
-        ]
-        day_cells = []
-        row_spans  = []
-
-        for day in days:
-            span = rowspan_at[day].get(ti, 1)
-            row_spans.append(span)
-            if span == 0:
-                day_cells.append(None)   # placeholder — won't appear
-                continue
-            s = lookup.get(day, {}).get(ts)
-            if span > 1:
-                # Show merged time range
-                end_ts_split = all_times[ti + span - 1]
-                display_ts = f"{ts.split('-')[0]}–{end_ts_split.split('-')[1]}"
-            else:
-                display_ts = ts
-
-            if s:
-                day_cells.append(
-                    Paragraph(
-                        f"<b>{s['subject_name']}</b><br/>"
-                        f"<font size='7' color='#2a4060'>{s['teacher_name']}</font>",
-                        slot_s
-                    )
-                )
-            else:
-                day_cells.append(Paragraph("—", empty_s))
-
-        # Build table row — for "skip" cells we still need a placeholder cell
-        row = [Paragraph("", day_s), cells[0]] + [
-            (dc if dc is not None else Paragraph("", empty_s))
-            for dc in day_cells
-        ]
-        table_rows.append(row)
-
-        # Register SPAN commands for multi-hour blocks
-        for di, (day, span) in enumerate(zip(days, row_spans)):
-            if span > 1:
-                col_i = 2 + di
-                span_cmds.append(
-                    ("SPAN", (col_i, row_idx), (col_i, row_idx + span - 1))
-                )
-
-        row_idx += 1
-
-    # ── DAY column spans ──────────────────────────────────────────────
-    # Each day occupies len(all_times) consecutive rows
-    n_times = len(all_times)
-    for di, day in enumerate(days):
-        # find first and last row for this day
-        # Since all days share the same time rows, the "DAY" label goes in
-        # the first row of the logical day block.  We repurpose column 0.
-        # Actually col 0 is "DAY" — we want it to show each day name only
-        # once, spanning all time rows.  But since multiple days are shown
-        # in the SAME rows (it's a grid, not a vertical layout), the DAY
-        # column doesn't apply here — we'll repurpose it differently.
-        pass  # The DAY column is handled via a separate day-header approach below
-
-    # Rebuild: Instead of using col 0 for days in every row,
-    # we add a sub-header row per day group.  But that changes layout.
-    # Simpler: keep current layout with col 0 empty, add day labels as
-    # row-group headers above each day's rows.
-    # 
-    # Actually the reference image uses DAY | PERIOD | SUBJECT(s) layout
-    # with DAY spanning vertically per day.  Let's implement that properly.
-
-    # ── REBUILD with proper DAY-span layout ─────────────────────────────
-    # Layout: each day is a GROUP of rows (one per time slot).
-    # Col 0 = DAY (spans all rows in the group)
-    # Col 1 = PERIOD
-    # Col 2..N = subject columns per day
-
-    table_rows2 = [header_row]
-    span_cmds2  = []
-    row_idx2    = 1
+    span_cmds  = []
+    row_idx    = 1  # row 0 is header
 
     for day in days:
-        day_start_row = row_idx2
-        for ti, ts in enumerate(all_times):
-            span = rowspan_at[day].get(ti, 1)
-            if span == 0:
-                continue  # this row is absorbed by a multi-hour span above
+        merged    = get_merged_rows(day)
+        day_start = row_idx
 
-            s = lookup.get(day, {}).get(ts)
-
-            # Period cell
-            if span > 1:
-                end_ts_here = all_times[ti + span - 1]
-                period_label = f"{ts.split('-')[0]}-{end_ts_here.split('-')[1]}"
-            else:
-                period_label = ts
-
-            # Subject cells — one per day column (only the current day has content)
+        for (period_label, s, _span) in merged:
             subj_cells = []
             for other_day in days:
                 if other_day == day:
                     if s:
-                        cell_para = Paragraph(
-                            f"<b>{s['subject_name']}</b><br/>"
-                            f"<font size='7' color='#2a4060'>{s['teacher_name']}</font>",
-                            slot_s
-                        )
+                        subj_cells.append(Paragraph(
+                            "<b>{}</b><br/><font size='6' color='#2a4060'>{}</font>".format(
+                                s["subject_name"], s["teacher_name"]), slot_s))
                     else:
-                        cell_para = Paragraph("—", empty_s)
-                    subj_cells.append(cell_para)
+                        subj_cells.append(Paragraph("-", empty_s))
                 else:
                     subj_cells.append(Paragraph("", empty_s))
 
-            row = (
-                [Paragraph(day, day_s),
-                 Paragraph(period_label, per_s)]
-                + subj_cells
-            )
-            table_rows2.append(row)
+            table_rows.append(
+                [Paragraph(day, day_s), Paragraph(period_label, per_s)] + subj_cells)
+            row_idx += 1  # always +1: one row per merged block
 
-            # Register SPAN for multi-hour block in this day's subject col
-            if span > 1:
-                day_col = 2 + days.index(day)
-                span_cmds2.append(
-                    ("SPAN", (day_col, row_idx2), (day_col, row_idx2 + span - 1))
-                )
-                # Also span the period cell
-                span_cmds2.append(
-                    ("SPAN", (1, row_idx2), (1, row_idx2 + span - 1))
-                )
+        day_end = row_idx - 1
+        if day_end > day_start:
+            span_cmds.append(("SPAN", (0, day_start), (0, day_end)))
 
-            row_idx2 += span
+    n_rows  = len(table_rows)
+    avail_h = PAGE[1] - TM - BM - 3.5 * cm
+    row_h   = max(0.55 * cm, avail_h / max(n_rows, 1))
 
-        day_end_row = row_idx2 - 1
-        if day_end_row > day_start_row:
-            span_cmds2.append(("SPAN", (0, day_start_row), (0, day_end_row)))
+    style = TableStyle([
+        ("BACKGROUND",     (0, 0),  (-1, 0),  HEAD_BG),
+        ("TEXTCOLOR",      (0, 0),  (-1, 0),  GOLD),
+        ("FONTNAME",       (0, 0),  (-1, 0),  "Helvetica-Bold"),
+        ("FONTSIZE",       (0, 0),  (-1, 0),  8),
+        ("ALIGN",          (0, 0),  (-1, 0),  "CENTER"),
+        ("VALIGN",         (0, 0),  (-1, 0),  "MIDDLE"),
+        ("FONTSIZE",       (0, 1),  (-1, -1), 7),
+        ("ALIGN",          (0, 1),  (-1, -1), "CENTER"),
+        ("VALIGN",         (0, 1),  (-1, -1), "MIDDLE"),
+        ("ROWBACKGROUNDS", (1, 1),  (-1, -1), [PALE_BG, ALT_BG]),
+        ("BACKGROUND",     (0, 1),  (0, -1),  DAY_BG),
+        ("FONTNAME",       (0, 1),  (0, -1),  "Helvetica-Bold"),
+        ("FONTSIZE",       (0, 1),  (0, -1),  8),
+        ("TEXTCOLOR",      (0, 1),  (0, -1),  TEXT_COL),
+        ("BACKGROUND",     (1, 1),  (1, -1),  PER_BG),
+        ("FONTNAME",       (1, 1),  (1, -1),  "Helvetica"),
+        ("FONTSIZE",       (1, 1),  (1, -1),  7),
+        ("GRID",           (0, 0),  (-1, -1), 0.4, GRID_COL),
+        ("LEFTPADDING",    (0, 0),  (-1, -1), 3),
+        ("RIGHTPADDING",   (0, 0),  (-1, -1), 3),
+        ("TOPPADDING",     (0, 0),  (-1, -1), 3),
+        ("BOTTOMPADDING",  (0, 0),  (-1, -1), 3),
+    ] + span_cmds)
 
-    # ── Table style ────────────────────────────────────────────────────
-    n_rows2 = len(table_rows2)
-
-    style_cmds2 = [
-        # Header
-        ("BACKGROUND",  (0, 0), (-1, 0),    HEAD_BG),
-        ("TEXTCOLOR",   (0, 0), (-1, 0),    GOLD),
-        ("FONTNAME",    (0, 0), (-1, 0),    "Helvetica-Bold"),
-        ("FONTSIZE",    (0, 0), (-1, 0),    8),
-        ("ALIGN",       (0, 0), (-1, 0),    "CENTER"),
-        ("VALIGN",      (0, 0), (-1, 0),    "MIDDLE"),
-
-        # Body
-        ("FONTSIZE",    (0, 1), (-1, -1),   7),
-        ("ALIGN",       (0, 1), (-1, -1),   "CENTER"),
-        ("VALIGN",      (0, 1), (-1, -1),   "MIDDLE"),
-
-        # Alternating rows (all cols)
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [PALE_BG, ALT_BG]),
-
-        # DAY col styling
-        ("BACKGROUND",  (0, 1), (0, -1),   DAY_BG),
-        ("FONTNAME",    (0, 1), (0, -1),   "Helvetica-Bold"),
-        ("FONTSIZE",    (0, 1), (0, -1),   8),
-        ("TEXTCOLOR",   (0, 1), (0, -1),   colors.HexColor("#0f2240")),
-
-        # PERIOD col
-        ("FONTNAME",    (1, 1), (1, -1),   "Helvetica"),
-        ("FONTSIZE",    (1, 1), (1, -1),   7),
-        ("BACKGROUND",  (1, 1), (1, -1),   colors.HexColor("#e8f0f8")),
-
-        # Grid
-        ("GRID",        (0, 0), (-1, -1),  0.4, GRID_COL),
-
-        # Padding
-        ("LEFTPADDING",  (0, 0), (-1, -1), 3),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
-        ("TOPPADDING",   (0, 0), (-1, -1), 3),
-        ("BOTTOMPADDING",(0, 0), (-1, -1), 3),
-    ] + span_cmds2
-
-    # Row height — auto, but set a minimum
-    row_h = max(0.65*cm, (PAGE[1] - TM - BM - 3.5*cm) / max(n_rows2, 1))
-
-    grid = Table(table_rows2, colWidths=col_widths, repeatRows=1,
-                 rowHeights=[0.7*cm] + [row_h] * (n_rows2 - 1))
-    grid.setStyle(TableStyle(style_cmds2))
+    grid = Table(table_rows, colWidths=col_widths, repeatRows=1,
+                 rowHeights=[0.65 * cm] + [row_h] * (n_rows - 1))
+    grid.setStyle(style)
     elements.append(grid)
 
-    # ── Teacher key ───────────────────────────────────────────────────
+    elements.append(Spacer(1, 2 * mm))
+    elements.append(Paragraph(
+        "NOTE: NO CHANGE WITHOUT THE PERMISSION OF THE UNDERSIGNED.", note_s))
+
     teachers = timetable.get("teachers", [])
     if teachers:
-        # Collect individual teacher names and abbreviations
-        name_map = {}   # abbrev -> full_name (if available from teacher records)
-        for t in teachers:
-            # teacher_name might be "KB / NK" or "Krishma Bhatia"
-            # Subject name might have room number in parens
-            parts = [p.strip() for p in t["teacher_name"].replace('&', '/').split('/')]
-            for part in parts:
-                if part and part not in name_map:
-                    name_map[part] = part
-
-        key_text = "  ".join(f"{k}" for k in sorted(name_map.keys()))
-        elements.append(Spacer(1, 2*mm))
-        elements.append(Paragraph(
-            "NOTE: NO CHANGE WITHOUT THE PERMISSION OF THE UNDERSIGNED.",
-            note_s))
-        if key_text:
-            elements.append(Paragraph(f"Teachers: {key_text}", note_s))
+        individuals = sorted({
+            p.strip()
+            for t in teachers
+            for p in t["teacher_name"].replace("&", "/").split("/")
+            if p.strip()
+        })
+        if individuals:
+            elements.append(Paragraph(
+                "Teachers: " + "   ".join(individuals), note_s))
 
     doc.build(elements)
     buf.seek(0)
-
-    filename = f"timetable_{timetable_id}.pdf"
+    filename = "timetable_{}.pdf".format(timetable_id)
     return Response(buf.getvalue(), mimetype="application/pdf",
-                    headers={"Content-Disposition": f"attachment; filename={filename}"})
+                    headers={"Content-Disposition": "attachment; filename=" + filename})
 
 
 @app.route("/api/timetables/<int:timetable_id>/export/ical", methods=["GET"])
