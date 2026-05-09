@@ -705,6 +705,18 @@
     @media (max-width:600px) {
       .stats-strip { grid-template-columns:1fr 1fr; }
     }
+  
+    /* ── SHARED SITE HEADER ───────────────────────────────────────── */
+    .site-header{display:flex;align-items:center;justify-content:space-between;padding:10px 32px;background:rgba(10,18,32,0.96);border-bottom:1px solid rgba(240,192,96,0.12);position:sticky;top:0;z-index:200;backdrop-filter:blur(12px);align-self:stretch;width:100%;}
+    .site-header-brand{font-family:var(--font-display);font-size:18px;font-weight:700;color:var(--white);text-decoration:none;display:flex;align-items:center;gap:8px;transition:color .2s;}
+    .site-header-brand:hover{color:var(--gold-300);}
+    .site-header-brand span{color:var(--gold-400);}
+    .site-header-brand .brand-mono{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-500);margin-right:4px;}
+    .site-header-right{display:flex;align-items:center;gap:10px;}
+    .site-header-login{padding:7px 18px;background:rgba(240,192,96,0.08);border:1px solid rgba(240,192,96,0.25);border-radius:6px;color:var(--gold-400);font-family:var(--font-body);font-size:13px;font-weight:500;text-decoration:none;transition:all .2s;}
+    .site-header-login:hover{background:rgba(240,192,96,0.18);}
+    @media(max-width:600px){.site-header{padding:10px 16px;}}
+
   </style>
 </head>
 <body>
@@ -877,7 +889,6 @@
           <thead>
             <tr>
               <th>Teacher</th>
-              <th>Branch</th>
               <th>Subject</th>
               <th>Slots</th>
               <th>Types</th>
@@ -1007,24 +1018,21 @@ function renderHero() {
 }
 
 function renderWorkload() {
-  const teachers = timetable.teachers || [];
-  const slots    = timetable.slots    || [];
-  if (!teachers.length) return;
+  const slots = timetable.slots || [];
+  if (!slots.length) return;
 
   const barColors = ['#5ba3d9','#4ec994','#f0c060','#9b79d4','#e8904a','#3ac4b8','#e06080','#8cb464'];
 
-  // Group by unique teacher_name — sum hours across all subjects they teach
-  const seen = new Map();
-  teachers.forEach((t, i) => {
-    if (!seen.has(t.teacher_name)) {
-      seen.set(t.teacher_name, { name: t.teacher_name, lec: 0, lab: 0, colorIdx: i });
-    }
-  });
+  // Split co-teachers (e.g. "RR / NK") and track each individual separately
+  const seen = new Map(); // individual name -> {name, lec, lab, colorIdx}
+  let ci = 0;
   slots.forEach(s => {
-    if (seen.has(s.teacher_name)) {
-      const e = seen.get(s.teacher_name);
-      if (s.type === 'lecture') e.lec++; else e.lab++;
-    }
+    const individuals = s.teacher_name.split(/[\s]*[\/&]\s*/).map(n => n.trim()).filter(Boolean);
+    individuals.forEach(name => {
+      if (!seen.has(name)) seen.set(name, { name, lec: 0, lab: 0, colorIdx: ci++ });
+      if (s.type === 'lecture') seen.get(name).lec++;
+      else seen.get(name).lab++;
+    });
   });
 
   const rows = [...seen.values()];
@@ -1046,7 +1054,12 @@ function renderStats() {
   const labs     = slots.filter(s => s.type === 'lab').length;
   const days     = new Set(slots.map(s => s.day)).size;
 
-  anim('statTeachers', timetable.teachers.length);
+  const uniqueTeachers = new Set(
+    timetable.teachers.flatMap(t =>
+      t.teacher_name.split(/\s*[\/&]\s*/).map(n => n.trim()).filter(Boolean)
+    )
+  ).size;
+  anim('statTeachers', uniqueTeachers);
   anim('statSlots',    slots.length);
   anim('statLectures', lectures);
   anim('statLabs',     labs);
@@ -1343,58 +1356,57 @@ function filterByBranch(branch) {
 }
 
 function renderRoster() {
-  const branchIdx = {};
-  [...new Set(timetable.teachers.map(t => t.branch_name))].forEach((b, i) => {
-    branchIdx[b] = i;
+  // Collect all individual teacher names (split co-teachers like "RR / NK")
+  const indivMap = new Map(); // individualName -> { subjects: Set, lec, lab, colorIdx }
+  let colorIdx = 0;
+
+  timetable.teachers.forEach(t => {
+    const individuals = t.teacher_name.split(/[\s]*[\/&]\s*/).map(n => n.trim()).filter(Boolean);
+    individuals.forEach(name => {
+      if (!indivMap.has(name)) {
+        indivMap.set(name, { name, subjects: new Set(), lec: 0, lab: 0, colorIdx: colorIdx++ });
+      }
+      indivMap.get(name).subjects.add(t.subject_name);
+    });
   });
 
-  // Group entries by unique teacher_name — merge subjects into one row
-  const grouped = new Map();
-  timetable.teachers.forEach((t, i) => {
-    if (!grouped.has(t.teacher_name)) {
-      grouped.set(t.teacher_name, { teacher_name: t.teacher_name, entries: [], colorIdx: i });
-    }
-    grouped.get(t.teacher_name).entries.push(t);
+  // Count slots per individual teacher
+  timetable.slots.forEach(s => {
+    const individuals = s.teacher_name.split(/[\s]*[\/&]\s*/).map(n => n.trim()).filter(Boolean);
+    individuals.forEach(name => {
+      if (indivMap.has(name)) {
+        if (s.type === 'lecture') indivMap.get(name).lec++;
+        else indivMap.get(name).lab++;
+      }
+    });
   });
 
-  const html = [...grouped.values()].map(g => {
-    const t      = g.entries[0];
-    const allSlots = timetable.slots.filter(s => s.teacher_name === t.teacher_name);
-    const lecs   = allSlots.filter(s => s.type === 'lecture').length;
-    const labs   = allSlots.filter(s => s.type === 'lab').length;
-    const idx    = g.colorIdx;
-    const color  = P_COLORS[idx % P_COLORS.length];
-    const initials = t.teacher_name.split(/[\s\/]+/).map(w => w[0]).filter(Boolean).join('').slice(0,2).toUpperCase();
-
-    // Build subjects/branch cells — one per entry, separated by commas if multiple
-    const subjectList = g.entries.map(e => esc(e.subject_name)).join(', ');
-    const branchList  = [...new Set(g.entries.map(e => e.branch_name))].map(b => {
-      const bi    = branchIdx[b] ?? 0;
-      const bcol  = P_COLORS[bi % P_COLORS.length];
-      return `<span class="roster-branch"><span style="width:8px;height:8px;border-radius:50%;background:${bcol};display:inline-block;flex-shrink:0"></span>${esc(b)}</span>`;
-    }).join(' ');
+  const html = [...indivMap.values()].map(r => {
+    const color    = P_COLORS[r.colorIdx % P_COLORS.length];
+    const initials = r.name.split(/\s+/).map(w => w[0]).filter(Boolean).join('').slice(0,2).toUpperCase();
+    const subjList = [...r.subjects].map(s => esc(s)).join(', ');
+    const total    = r.lec + r.lab;
 
     return `<tr>
       <td>
         <div class="roster-name-cell">
           <div class="teacher-avatar" style="background:${color}22;color:${color};border:1px solid ${color}44">${initials}</div>
-          <span>${esc(t.teacher_name)}</span>
+          <span>${esc(r.name)}</span>
         </div>
       </td>
-      <td>${branchList}</td>
-      <td class="roster-subject">${subjectList}</td>
-      <td class="roster-slots">${allSlots.length}</td>
+      <td class="roster-subject">${subjList}</td>
+      <td class="roster-slots">${total}</td>
       <td>
         <div class="roster-types">
-          ${lecs > 0 ? `<span class="type-chip type-lec">${lecs}L</span>` : ''}
-          ${labs > 0 ? `<span class="type-chip type-lab">${labs}P</span>` : ''}
+          ${r.lec > 0 ? `<span class="type-chip type-lec">${r.lec}L</span>` : ''}
+          ${r.lab > 0 ? `<span class="type-chip type-lab">${r.lab}P</span>` : ''}
         </div>
       </td>
     </tr>`;
   }).join('');
 
   document.getElementById('rosterBody').innerHTML = html ||
-    `<tr><td colspan="5" style="text-align:center;color:var(--slate-400);padding:20px">No teachers found.</td></tr>`;
+    `<tr><td colspan="4" style="text-align:center;color:var(--slate-400);padding:20px">No teachers found.</td></tr>`;
 }
 
 function setView(v) {
