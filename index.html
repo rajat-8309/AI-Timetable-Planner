@@ -324,6 +324,18 @@
       .about-left{border-right:none;border-bottom:1px solid rgba(240,192,96,0.1);padding:28px 24px;}
       .about-right{padding:28px 24px;}
     }
+  
+    /* ── SHARED SITE HEADER ───────────────────────────────────────── */
+    .site-header{display:flex;align-items:center;justify-content:space-between;padding:10px 32px;background:rgba(10,18,32,0.96);border-bottom:1px solid rgba(240,192,96,0.12);position:sticky;top:0;z-index:200;backdrop-filter:blur(12px);align-self:stretch;width:100%;}
+    .site-header-brand{font-family:var(--font-display);font-size:18px;font-weight:700;color:var(--white);text-decoration:none;display:flex;align-items:center;gap:8px;transition:color .2s;}
+    .site-header-brand:hover{color:var(--gold-300);}
+    .site-header-brand span{color:var(--gold-400);}
+    .site-header-brand .brand-mono{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-500);margin-right:4px;}
+    .site-header-right{display:flex;align-items:center;gap:10px;}
+    .site-header-login{padding:7px 18px;background:rgba(240,192,96,0.08);border:1px solid rgba(240,192,96,0.25);border-radius:6px;color:var(--gold-400);font-family:var(--font-body);font-size:13px;font-weight:500;text-decoration:none;transition:all .2s;}
+    .site-header-login:hover{background:rgba(240,192,96,0.18);}
+    @media(max-width:600px){.site-header{padding:10px 16px;}}
+
   </style>
 </head>
 <body>
