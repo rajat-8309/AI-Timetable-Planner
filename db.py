@@ -134,7 +134,7 @@ def get_all_timetables(page=1, limit=50, dept_filter="", semester_filter="", sea
     c.execute(f"""
         SELECT
             t.id, t.name, t.semester, t.department, t.created_at, t.updated_at,
-            COUNT(DISTINCT tc.id)                                       AS teacher_count,
+            COUNT(DISTINCT tc.teacher_name)                             AS teacher_count,
             COUNT(DISTINCT s.id)                                        AS slot_count,
             COUNT(DISTINCT CASE WHEN s.type = 'lecture' THEN s.id END) AS lecture_count,
             COUNT(DISTINCT CASE WHEN s.type = 'lab'     THEN s.id END) AS lab_count,
@@ -333,7 +333,7 @@ def get_system_stats() -> dict:
     c.execute("""
         SELECT
             COUNT(DISTINCT t.id)                                        AS total_timetables,
-            COUNT(DISTINCT tc.id)                                       AS total_teachers,
+            COUNT(DISTINCT tc.teacher_name)                             AS total_teachers,
             COUNT(DISTINCT s.id)                                        AS total_slots,
             COUNT(DISTINCT CASE WHEN s.type = 'lecture' THEN s.id END) AS total_lectures,
             COUNT(DISTINCT CASE WHEN s.type = 'lab'     THEN s.id END) AS total_labs,
@@ -419,22 +419,22 @@ def init_auth_db():
         ph = generate_password_hash('admin123')
         c.execute(
             "INSERT INTO users (username, password_hash, role, display_name) VALUES (%s,%s,%s,%s)",
-            ('Head', ph, 'head', 'Head')
+            ('admin', ph, 'head', 'Admin')
         )
         conn.commit()
-        print("⚠  Head account created — login: Head / admin123")
+        print("⚠  Admin account created — login: admin / admin123")
         print("   Change this password via Admin Panel immediately.")
 
     # Seed default teacher account
-    c.execute("SELECT id FROM users WHERE username = 'Teacher' LIMIT 1")
+    c.execute("SELECT id FROM users WHERE username = 'user' LIMIT 1")
     if not c.fetchone():
         ph = generate_password_hash('teacher123')
         c.execute(
             "INSERT INTO users (username, password_hash, role, display_name) VALUES (%s,%s,%s,%s)",
-            ('Teacher', ph, 'teacher', 'Teacher')
+            ('user', ph, 'teacher', 'User')
         )
         conn.commit()
-        print("⚠  Teacher account created — login: Teacher / teacher123")
+        print("⚠  User account created — login: user / teacher123")
         print("   Change this password via Admin Panel.")
 
     conn.close()
