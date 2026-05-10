@@ -294,12 +294,9 @@ def get_all_slots(exclude_timetable_id=None) -> list:
 
 
 def check_conflicts(new_slots: list, exclude_timetable_id=None) -> list:
-    """Check for teacher double-booking across timetables.
-
-    Branch/subject name conflicts are intentionally NOT checked here because
-    the same subject (e.g. SCA) can legitimately be taught to different student
-    groups by different teachers at the same time.  Only teacher availability
-    is a hard constraint.
+    """Check for teacher double-booking across timetables only.
+    Branch/subject name is not a conflict: the same subject can be taught
+    to different student groups simultaneously by different teachers.
     """
     existing_slots = get_all_slots(exclude_timetable_id=exclude_timetable_id)
 
