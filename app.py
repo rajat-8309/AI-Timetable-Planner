@@ -324,10 +324,8 @@ def update_slots(timetable_id):
 
 @app.route("/api/conflicts-summary", methods=["GET"])
 def conflicts_summary():
-    """Return timetable IDs that have teacher double-booking conflicts.
-
-    Branch/subject name is intentionally not checked: the same subject
-    can be taught to different student groups at the same time.
+    """Return timetable IDs with teacher double-booking conflicts only.
+    Branch/subject name is not checked here.
     """
     all_slots    = db.get_all_slots()
     seen_teacher = {}
