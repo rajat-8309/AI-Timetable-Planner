@@ -100,9 +100,11 @@ def deterministic_schedule(teachers: list, existing_slots: list):
         lab_len = int(round(float(t.get('lab_length',     2))))
         for i in range(n_lec):
             sessions.append({'teacher': t['teacher_name'], 'subject': t['subject_name'],
+                             'room_no': t.get('room_no', ''),
                              'type': 'lecture', 'length': lec_len, 'sidx': i})
         for i in range(n_lab):
             sessions.append({'teacher': t['teacher_name'], 'subject': t['subject_name'],
+                             'room_no': t.get('room_no', ''),
                              'type': 'lab', 'length': lab_len, 'sidx': i})
 
     if not sessions:
@@ -145,7 +147,7 @@ def deterministic_schedule(teachers: list, existing_slots: list):
             return False
         return True
 
-    def do_place(day, start_h, length, tname, subject, stype,
+    def do_place(day, start_h, length, tname, subject, stype, room_no,
                  occ_t, occ_ts, occ_branch, result):
         ts_list = [fmt_slot(start_h + k) for k in range(length)]
         for ts in ts_list:
@@ -155,7 +157,8 @@ def deterministic_schedule(teachers: list, existing_slots: list):
             occ_branch.add((subject.lower(), day, ts))
             result.append({'day': day, 'time_slot': ts,
                            'teacher_name': tname, 'branch_name': subject,
-                           'subject_name': subject, 'type': stype})
+                           'subject_name': subject, 'room_no': room_no,
+                           'type': stype})
 
     def do_unplace(day, start_h, length, tname, subject,
                    occ_t, occ_ts, occ_branch, result):
@@ -292,6 +295,7 @@ def deterministic_schedule(teachers: list, existing_slots: list):
                 if can_place(day, sh, length, tname, subject,
                              occ_t, occ_ts, occ_branch):
                     do_place(day, sh, length, tname, subject, stype,
+                             sess.get('room_no', ''),
                              occ_t, occ_ts, occ_branch, result)
                     day_count[(tl, sl, day)] = day_count.get((tl, sl, day), 0) + 1
                     placed = True
@@ -375,6 +379,7 @@ def deterministic_schedule(teachers: list, existing_slots: list):
 
             for day, sh in domain:
                 do_place(day, sh, length, tname, subject, stype,
+                         sess.get('room_no', ''),
                          occ_t, occ_ts, occ_branch, bt_result)
                 day_count_bt[(tl, sl, day)] = \
                     day_count_bt.get((tl, sl, day), 0) + 1
