@@ -252,6 +252,43 @@
       .form-grid{grid-template-columns:1fr;}
       .regen-box{flex-direction:column;}
     }
+
+    /* ── EDITABLE TEACHER TABLE ──────────────────────────────────────── */
+    .teacher-edit-wrap{background:var(--navy-900);border:1px solid rgba(240,192,96,0.12);border-radius:var(--radius);overflow:hidden;box-shadow:0 1px 0 rgba(255,255,255,0.04) inset;}
+    .teacher-edit-table{width:100%;border-collapse:collapse;}
+    .teacher-edit-table thead tr{background:rgba(240,192,96,0.05);border-bottom:1px solid rgba(240,192,96,0.12);}
+    .teacher-edit-table th{padding:10px 12px;text-align:left;font-size:10px;font-family:var(--font-mono);font-weight:500;text-transform:uppercase;letter-spacing:.14em;color:var(--gold-400);white-space:nowrap;}
+    .teacher-edit-table th.col-num{width:36px;text-align:center;}
+    .teacher-edit-table th.col-del{width:40px;}
+    .teacher-edit-table tbody tr{border-bottom:1px solid rgba(240,192,96,0.06);transition:background var(--t);}
+    .teacher-edit-table tbody tr:last-child{border-bottom:none;}
+    .teacher-edit-table tbody tr:hover{background:rgba(255,255,255,0.02);}
+    .teacher-edit-table tbody tr.row-new{animation:rowIn .3s ease both;}
+    @keyframes rowIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+    .teacher-edit-table td{padding:8px;vertical-align:middle;}
+    .td-num{text-align:center;font-family:var(--font-mono);font-size:12px;color:var(--slate-400);}
+    .et-input{width:100%;padding:7px 9px;background:rgba(255,255,255,0.04);border:1px solid rgba(240,192,96,0.08);border-radius:var(--radius-sm);color:var(--white);font-family:var(--font-body);font-size:12px;outline:none;transition:border-color var(--t),background var(--t);}
+    .et-input:focus{border-color:rgba(240,192,96,0.35);background:rgba(255,255,255,0.07);}
+    .et-input::placeholder{color:var(--slate-400);opacity:.5;}
+    .et-input.error{border-color:rgba(224,92,92,0.5);}
+    .et-input[type="number"]{-moz-appearance:textfield;text-align:center;}
+    .et-input[type="number"]::-webkit-inner-spin-button,.et-input[type="number"]::-webkit-outer-spin-button{appearance:none;}
+    .btn-del-row{width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid rgba(224,92,92,0.15);border-radius:var(--radius-sm);color:rgba(224,92,92,0.5);cursor:pointer;transition:all var(--t);}
+    .btn-del-row:hover{background:rgba(224,92,92,0.1);border-color:rgba(224,92,92,0.4);color:var(--red-400);}
+    .btn-del-row svg{width:12px;height:12px;}
+    .teacher-table-footer{padding:12px 14px;border-top:1px solid rgba(240,192,96,0.08);display:flex;align-items:center;justify-content:space-between;background:rgba(240,192,96,0.02);}
+    .btn-add-row{display:inline-flex;align-items:center;gap:7px;padding:7px 14px;background:transparent;border:1px dashed rgba(240,192,96,0.25);border-radius:var(--radius-sm);color:var(--gold-400);font-family:var(--font-body);font-size:12px;font-weight:500;cursor:pointer;transition:all var(--t);}
+    .btn-add-row:hover{background:rgba(240,192,96,0.06);border-style:solid;border-color:rgba(240,192,96,0.4);}
+    .btn-add-row svg{width:13px;height:13px;}
+    .teacher-save-bar{display:flex;align-items:center;gap:12px;padding:16px 20px;background:var(--navy-900);border:1px solid rgba(240,192,96,0.12);border-radius:var(--radius);margin-top:14px;flex-wrap:wrap;box-shadow:0 1px 0 rgba(255,255,255,0.04) inset;}
+    .teacher-save-info{flex:1;font-size:13px;color:var(--slate-400);}
+    .teacher-save-info strong{color:var(--white);}
+    .btn-save-teachers{padding:10px 22px;background:linear-gradient(135deg,var(--gold-400),var(--gold-300));color:var(--navy-950);border:none;border-radius:var(--radius-sm);font-family:var(--font-body);font-weight:700;font-size:13px;cursor:pointer;transition:all var(--t);}
+    .btn-save-teachers:hover{background:linear-gradient(135deg,var(--gold-300),#fde090);transform:translateY(-1px);box-shadow:0 6px 18px rgba(240,192,96,0.28);}
+    .btn-save-teachers:disabled{opacity:.5;cursor:not-allowed;}
+    .teacher-msg{font-size:12px;padding:7px 12px;border-radius:var(--radius-sm);display:none;}
+    .teacher-msg.ok{background:rgba(78,201,148,0.08);border:1px solid rgba(78,201,148,0.22);color:var(--green-400);display:block;}
+    .teacher-msg.err{background:rgba(224,92,92,0.08);border:1px solid rgba(224,92,92,0.22);color:var(--red-400);display:block;}
   
     /* ── SHARED SITE HEADER ───────────────────────────────────────── */
     .site-header{display:flex;align-items:center;justify-content:space-between;padding:10px 32px;background:rgba(10,18,32,0.96);border-bottom:1px solid rgba(240,192,96,0.12);position:sticky;top:0;z-index:200;backdrop-filter:blur(12px);align-self:stretch;width:100%;}
@@ -344,26 +381,43 @@
       <span style="font-family:var(--font-mono);font-size:11px;color:var(--slate-400)" id="teacherCount">0 teachers</span>
     </div>
 
-    <div class="roster-wrap">
-      <table class="roster-table">
+    <div class="teacher-edit-wrap">
+      <table class="teacher-edit-table">
         <thead>
           <tr>
-            <th>Teacher</th>
-            <th>Branch</th>
-            <th>Subject</th>
-            <th>Lectures/wk</th>
-            <th>Labs/wk</th>
-            <th>Schedule</th>
+            <th class="col-num">#</th>
+            <th>Teacher Name</th>
+            <th>Co-Teacher <span style="font-weight:300;font-size:9px;opacity:.6">(Optional)</span></th>
+            <th>Subject Name</th>
+            <th style="width:85px;text-align:center">Room / Lab No.</th>
+            <th style="width:72px;text-align:center">Lec/wk</th>
+            <th style="width:72px;text-align:center">Lab/wk</th>
+            <th style="width:72px;text-align:center">Lec Len</th>
+            <th style="width:72px;text-align:center">Lab Len</th>
+            <th class="col-del"></th>
           </tr>
         </thead>
-        <tbody id="rosterBody">
-          <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--slate-400)">Loading…</td></tr>
+        <tbody id="teacherEditBody">
+          <tr id="teacherEmptyRow"><td colspan="10" style="text-align:center;padding:24px;color:var(--slate-400);font-size:13px">Loading…</td></tr>
         </tbody>
       </table>
+      <div class="teacher-table-footer">
+        <button class="btn-add-row" onclick="addTeacherRow()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          Add Teacher Row
+        </button>
+        <span style="font-family:var(--font-mono);font-size:11px;color:var(--slate-400)" id="rowCountLabel">0 teachers</span>
+      </div>
     </div>
-    <p style="font-size:12px;color:var(--slate-400);margin-top:10px;padding:0 4px">
-      To change teachers, create a new timetable or use Regenerate below to get a fresh schedule with the same teacher list.
-    </p>
+
+    <div class="teacher-save-bar">
+      <div class="teacher-save-info">Edit the roster above, then <strong>Save Teachers</strong>. After saving, click <strong>Regenerate</strong> to rebuild the schedule with the new teacher data.</div>
+      <div class="teacher-msg" id="teacherMsg"></div>
+      <button class="btn-save-teachers" id="saveTeachersBtn" onclick="saveTeachers()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;display:inline;vertical-align:middle;margin-right:5px"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Save Teachers
+      </button>
+    </div>
   </div>
 
   
@@ -512,37 +566,154 @@ function renderPage() {
   show('mainPage');
 }
 
+let editRowCounter = 0;
+
 function renderRoster(teachers) {
-  const branchList = [...new Set(teachers.map(t => t.branch_name))];
-  document.getElementById('teacherCount').textContent =
-    `${teachers.length} teacher${teachers.length !== 1 ? 's' : ''}`;
+  // Clear existing rows
+  const tbody = document.getElementById('teacherEditBody');
+  const emptyRow = document.getElementById('teacherEmptyRow');
+  if (emptyRow) emptyRow.remove();
+  tbody.innerHTML = '';
+  editRowCounter = 0;
 
-  const rows = teachers.map(t => {
-    const bIdx  = branchList.indexOf(t.branch_name);
-    const color = P_COLORS[bIdx % P_COLORS.length];
-    const inits = t.teacher_name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
-    return `<tr>
-      <td>
-        <div class="name-cell">
-          <div class="teacher-av" style="background:${color}22;color:${color};border:1px solid ${color}44">${esc(inits)}</div>
-          ${esc(t.teacher_name)}
-        </div>
-      </td>
-      <td style="color:var(--slate-300)">${esc(t.branch_name)}</td>
-      <td style="color:var(--slate-300)">${esc(t.subject_name)}</td>
-      <td style="font-family:var(--font-mono);font-size:12px">${t.no_of_lectures}</td>
-      <td style="font-family:var(--font-mono);font-size:12px">${t.no_of_labs}</td>
-      <td>
-        <div style="display:flex;gap:5px;flex-wrap:wrap">
-          ${t.no_of_lectures > 0 ? `<span class="type-chip lec">${t.no_of_lectures}×${t.lecture_length}h Lec</span>` : ''}
-          ${t.no_of_labs > 0     ? `<span class="type-chip lab">${t.no_of_labs}×${t.lab_length}h Lab</span>` : ''}
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
+  if (!teachers || teachers.length === 0) {
+    addTeacherRow();
+    return;
+  }
 
-  document.getElementById('rosterBody').innerHTML = rows ||
-    `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--slate-400)">No teachers found.</td></tr>`;
+  teachers.forEach(t => {
+    // Split co-teacher if present (e.g. "VR / RR" -> teacher="VR", co="RR")
+    const parts = t.teacher_name.split(/\s*\/\s*/);
+    const mainTeacher = parts[0] || '';
+    const coTeacher   = parts.slice(1).join(' / ') || '';
+    addTeacherRow({ teacher_name: mainTeacher, co_teacher: coTeacher,
+                    subject_name: t.subject_name, room_no: t.room_no || '',
+                    no_of_lectures: t.no_of_lectures, no_of_labs: t.no_of_labs,
+                    lecture_length: t.lecture_length, lab_length: t.lab_length });
+  });
+  updateRowCount();
+}
+
+function addTeacherRow(data) {
+  editRowCounter++;
+  const tbody    = document.getElementById('teacherEditBody');
+  const emptyRow = document.getElementById('teacherEmptyRow');
+  if (emptyRow) emptyRow.remove();
+
+  const d = data || {};
+  const tr = document.createElement('tr');
+  tr.id        = `erow-${editRowCounter}`;
+  tr.className = 'row-new';
+  tr.innerHTML = `
+    <td class="td-num">${editRowCounter}</td>
+    <td><input type="text"   class="et-input" placeholder="Dr. Sharma"        data-field="teacher_name"  maxlength="80" value="${escAttr(d.teacher_name || '')}" /></td>
+    <td><input type="text"   class="et-input" placeholder="Co-teacher (opt.)" data-field="co_teacher"    maxlength="80" value="${escAttr(d.co_teacher || '')}" /></td>
+    <td><input type="text"   class="et-input" placeholder="DBMS"              data-field="subject_name"  maxlength="80" value="${escAttr(d.subject_name || '')}" /></td>
+    <td><input type="text"   class="et-input" placeholder="D324"              data-field="room_no"       maxlength="20" value="${escAttr(d.room_no || '')}" /></td>
+    <td><input type="number" class="et-input" placeholder="3" min="0" max="20" value="${d.no_of_lectures ?? 3}" data-field="no_of_lectures" /></td>
+    <td><input type="number" class="et-input" placeholder="1" min="0" max="10" value="${d.no_of_labs ?? 1}"     data-field="no_of_labs" /></td>
+    <td><input type="number" class="et-input" placeholder="1" min="0.5" max="3" step="0.5" value="${d.lecture_length ?? 1}" data-field="lecture_length" /></td>
+    <td><input type="number" class="et-input" placeholder="2" min="1"   max="4" step="0.5" value="${d.lab_length ?? 2}"     data-field="lab_length" /></td>
+    <td>
+      <button class="btn-del-row" onclick="deleteTeacherRow('erow-${editRowCounter}')" title="Remove">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </td>`;
+  tbody.appendChild(tr);
+  if (!data) tr.querySelector('input').focus();
+  updateRowCount();
+}
+
+function deleteTeacherRow(id) {
+  const row = document.getElementById(id);
+  if (!row) return;
+  row.style.opacity = '0'; row.style.transform = 'translateX(10px)'; row.style.transition = 'all .2s';
+  setTimeout(() => {
+    row.remove();
+    reNumberTeacherRows();
+    updateRowCount();
+  }, 200);
+}
+
+function reNumberTeacherRows() {
+  document.querySelectorAll('#teacherEditBody tr:not(#teacherEmptyRow) .td-num')
+    .forEach((el, i) => el.textContent = i + 1);
+}
+
+function updateRowCount() {
+  const count = document.querySelectorAll('#teacherEditBody tr:not(#teacherEmptyRow)').length;
+  document.getElementById('teacherCount').textContent   = `${count} teacher${count !== 1 ? 's' : ''}`;
+  document.getElementById('rowCountLabel').textContent = `${count} teacher${count !== 1 ? 's' : ''}`;
+}
+
+function collectTeachers() {
+  const rows = document.querySelectorAll('#teacherEditBody tr:not(#teacherEmptyRow)');
+  return Array.from(rows).map(row => {
+    const get = f => row.querySelector(`[data-field="${f}"]`)?.value.trim() || '';
+    const teacher   = get('teacher_name');
+    const coTeacher = get('co_teacher');
+    const subject   = get('subject_name');
+    return {
+      teacher_name:   coTeacher ? `${teacher} / ${coTeacher}` : teacher,
+      branch_name:    subject,
+      subject_name:   subject,
+      room_no:        get('room_no'),
+      no_of_lectures: parseFloat(get('no_of_lectures')) || 0,
+      no_of_labs:     parseFloat(get('no_of_labs'))     || 0,
+      lecture_length: parseFloat(get('lecture_length')) || 1,
+      lab_length:     parseFloat(get('lab_length'))     || 2,
+    };
+  });
+}
+
+function escAttr(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function saveTeachers() {
+  const teachers = collectTeachers();
+  const btn = document.getElementById('saveTeachersBtn');
+  const msg = document.getElementById('teacherMsg');
+  msg.className = 'teacher-msg';
+
+  // Validate
+  let valid = true;
+  for (const t of teachers) {
+    if (!t.teacher_name) { valid = false; break; }
+    if (!t.subject_name) { valid = false; break; }
+  }
+  if (!valid || teachers.length === 0) {
+    msg.textContent = 'Please fill in teacher name and subject for all rows.';
+    msg.className = 'teacher-msg err';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  try {
+    const res  = await authFetch(`${API}/timetables/${timetable.id}/teachers`, {
+      method: 'PUT',
+      body:   JSON.stringify({ teachers }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      timetable.teachers = teachers;
+      msg.textContent = `✓ ${data.count} teacher${data.count !== 1 ? 's' : ''} saved. Now click Regenerate to rebuild the schedule.`;
+      msg.className = 'teacher-msg ok';
+      updateRowCount();
+      toast('Teachers saved!', 's');
+    } else {
+      msg.textContent = data.error || 'Save failed.';
+      msg.className = 'teacher-msg err';
+    }
+  } catch {
+    msg.textContent = 'Backend offline — could not save.';
+    msg.className = 'teacher-msg err';
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;display:inline;vertical-align:middle;margin-right:5px"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Teachers`;
 }
 
 async function saveMetadata() {
@@ -604,7 +775,7 @@ async function regenerate() {
       try {
         const fresh = await fetch(`${API}/timetables/${timetable.id}`);
         const fJson = await fresh.json();
-        if (fJson.success) { timetable = fJson.data; renderRoster(timetable.teachers); }
+        if (fJson.success) { timetable = fJson.data; }
       } catch {}
 
       toast(`Schedule regenerated in ${data.attempts ?? 1} attempt(s)! Redirecting to view…`, 's');
@@ -706,7 +877,7 @@ function renderEditorGrid() {
         const sel = isSelD ? ' selected' : '';
         html += `<td onclick="edClick('${day}','${ts}')">
           <div class="ed-slot ${cls}${sel}" title="${esc(s.subject_name)} — ${esc(s.teacher_name)}">
-            <div class="ed-subject">${esc(s.subject_name)}</div>
+            <div class="ed-subject">${esc(s.subject_name)}${s.room_no ? `<span style="font-size:8px;opacity:.7;font-family:var(--font-mono);margin-left:3px">(${esc(s.room_no)})</span>` : ''}</div>
             <div class="ed-teacher">${esc(s.teacher_name)}</div>
             <span class="ed-badge">${s.type}</span>
           </div>
