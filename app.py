@@ -120,7 +120,6 @@ def sanitize_teacher(t: dict, index: int) -> dict:
         "teacher_name":   sanitize_str(t.get("teacher_name", ""), MAX_STR_LEN, f"{prefix} teacher_name"),
         "branch_name":    subject,
         "subject_name":   subject,
-        "room_no":        str(t.get("room_no", "") or "").strip()[:20],
         "no_of_lectures": max(0, min(20, int(t.get("no_of_lectures", 0) or 0))),
         "no_of_labs":     max(0, min(10, int(t.get("no_of_labs",     0) or 0))),
         "lecture_length": max(0.5, min(3.0, float(t.get("lecture_length", 1.0) or 1.0))),
@@ -321,46 +320,17 @@ def update_slots(timetable_id):
     return jsonify({"success": True, "message": "Slots updated successfully."})
 
 
-
-
-@app.route("/api/timetables/<int:timetable_id>/teachers", methods=["PUT"])
-@require_head
-def update_teachers(timetable_id):
-    timetable = db.get_timetable_by_id(timetable_id)
-    if not timetable:
-        return jsonify({"success": False, "error": "Timetable not found"}), 404
-
-    data = request.get_json()
-    if not data or "teachers" not in data:
-        return jsonify({"success": False, "error": "Missing 'teachers' in body"}), 400
-
-    raw_teachers = data["teachers"]
-    if not raw_teachers:
-        return jsonify({"success": False, "error": "At least one teacher is required"}), 400
-
-    try:
-        teachers = [sanitize_teacher(t, i) for i, t in enumerate(raw_teachers)]
-    except ValueError as e:
-        return jsonify({"success": False, "error": str(e)}), 400
-
-    if len(teachers) > MAX_TEACHERS:
-        return jsonify({"success": False,
-                        "error": f"Max {MAX_TEACHERS} teachers allowed."}), 400
-
-    db.update_teachers(timetable_id, teachers)
-    db.add_audit_log(timetable_id, "update",
-                     f"Teacher roster updated for '{timetable['name']}' "
-                     f"({len(teachers)} teachers).")
-    return jsonify({"success": True, "message": "Teachers updated successfully.",
-                    "count": len(teachers)})
-
 # ── Conflicts summary ─────────────────────────────────────────────────────────
 
 @app.route("/api/conflicts-summary", methods=["GET"])
 def conflicts_summary():
+    """Return timetable IDs that have teacher double-booking conflicts.
+
+    Branch/subject name is intentionally not checked: the same subject
+    can be taught to different student groups at the same time.
+    """
     all_slots    = db.get_all_slots()
     seen_teacher = {}
-    seen_branch  = {}
     conflict_ids = set()
 
     for s in all_slots:
@@ -371,13 +341,6 @@ def conflicts_summary():
                 conflict_ids.add(seen_teacher[tk])
             else:
                 seen_teacher[tk] = s["timetable_id"]
-
-        bk = (s["branch_name"].lower(), s["day"], s["time_slot"])
-        if bk in seen_branch:
-            conflict_ids.add(s["timetable_id"])
-            conflict_ids.add(seen_branch[bk])
-        else:
-            seen_branch[bk] = s["timetable_id"]
 
     return jsonify({"success": True, "conflict_timetable_ids": list(conflict_ids)})
 
@@ -593,184 +556,152 @@ def export_pdf(timetable_id):
         from reportlab.lib.pagesizes import A4
         from reportlab.lib import colors
         from reportlab.lib.units import cm, mm
-        from reportlab.platypus import (SimpleDocTemplate, Table, TableStyle,
-                                        Paragraph, Spacer)
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
         from reportlab.lib.styles import ParagraphStyle
-        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT
     except ImportError:
         return jsonify({"success": False,
                         "error": "reportlab not installed. Run: pip install reportlab"}), 500
 
     DAY_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+    # Fixed 1-hour slots matching the working day (lunch gap 13-14 excluded)
     ALL_HOURS = [
         "9:00-10:00", "10:00-11:00", "11:00-12:00", "12:00-13:00",
         "14:00-15:00", "15:00-16:00", "16:00-17:00",
     ]
 
-    slots    = timetable["slots"]
-    teachers = timetable.get("teachers", [])
+    slots = timetable["slots"]
 
-    # Build teacher abbreviation map  e.g. "Virender Rawat" -> "VR"
-    def make_abbr(name):
-        parts = [p for p in name.strip().split() if p]
-        if not parts:
-            return "?"
-        if len(parts) == 1:
-            return parts[0][:3].upper()
-        return "".join(p[0] for p in parts).upper()
-
-    individual_teachers = []
-    seen_names = set()
-    for t in teachers:
-        for raw in t["teacher_name"].replace("&", "/").split("/"):
-            n = raw.strip()
-            if n and n not in seen_names:
-                seen_names.add(n)
-                individual_teachers.append(n)
-    abbr_map = {n: make_abbr(n) for n in individual_teachers}
-
+    # Normalise stored time_slot keys (e.g. "09:00-10:00" → "9:00-10:00")
     def norm_ts(ts):
         a, b = ts.split("-")
         return f"{int(a.split(':')[0])}:{a.split(':')[1]}-{int(b.split(':')[0])}:{b.split(':')[1]}"
 
-    lookup = {}
+    lookup = {}  # day -> normalised_hour -> slot
     for s in slots:
         lookup.setdefault(s["day"], {})[norm_ts(s["time_slot"])] = s
 
     days = [d for d in DAY_ORDER if d in lookup]
 
+    # ── Portrait A4 ───────────────────────────────────────────────
     PAGE = A4
-    LM = RM = 1.6 * cm
-    TM = BM = 1.1 * cm
+    LM = RM = 1.3 * cm
+    TM = BM = 1.0 * cm
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=PAGE,
                             leftMargin=LM, rightMargin=RM,
                             topMargin=TM, bottomMargin=BM)
 
-    HEAD_BG  = colors.HexColor("#1a2e4a")
-    GOLD     = colors.HexColor("#f0c060")
-    DAY_BG   = colors.HexColor("#c8d8e8")
-    PER_BG   = colors.HexColor("#dce8f4")
-    WHITE    = colors.white
-    ALT_BG   = colors.HexColor("#f0f6fc")
-    GRID     = colors.HexColor("#8fa8c0")
-    NOTE_C   = colors.HexColor("#506070")
-    TEXT_C   = colors.HexColor("#0c1e34")
-    EMPTY_C  = colors.HexColor("#c0c8d0")
-    TUTOR_BG = colors.HexColor("#e8f0f8")
+    HEAD_BG = colors.HexColor("#1a2e4a")
+    GOLD    = colors.HexColor("#f0c060")
+    DAY_BG  = colors.HexColor("#c8d8e8")
+    PER_BG  = colors.HexColor("#dce8f4")
+    WHITE   = colors.white
+    ALT_BG  = colors.HexColor("#f0f6fc")
+    GRID    = colors.HexColor("#8fa8c0")
+    NOTE_C  = colors.HexColor("#506070")
+    TEXT_C  = colors.HexColor("#0c1e34")
+    EMPTY_C = colors.HexColor("#b0c0d0")
 
     def mk(name, font="Helvetica", size=7, align=TA_CENTER, color=None, **kw):
         kw2 = dict(fontName=font, fontSize=size, alignment=align,
-                   leading=size + 2.5, **kw)
+                   leading=size + 2, **kw)
         if color:
             kw2["textColor"] = color
         return ParagraphStyle(name, **kw2)
 
-    hd_inst  = mk("hdi", "Helvetica-Bold",  9,  color=TEXT_C)
-    hd_addr  = mk("hda", "Helvetica",        6,  color=NOTE_C)
-    hd_dept  = mk("hdd", "Helvetica-Bold",  11,  color=TEXT_C)
-    hd_tt    = mk("hdt", "Helvetica-Bold",  13,  color=TEXT_C)
-    hd_meta  = mk("hdm", "Helvetica",         7,  color=NOTE_C)
-    th_s     = mk("th",  "Helvetica-Bold",   7,  color=GOLD)
-    day_s    = mk("dy",  "Helvetica-Bold",   7,  color=TEXT_C)
-    per_s    = mk("pr",  "Helvetica",         6,  color=NOTE_C)
-    cell_s   = mk("cs",  "Helvetica-Bold",   7,  color=TEXT_C, align=TA_LEFT)
-    note_s   = mk("nt",  "Helvetica",         6,  TA_LEFT, color=NOTE_C)
-    abbr_s   = mk("ab",  "Helvetica",         6,  TA_LEFT, color=NOTE_C)
-    wef_s    = mk("wf",  "Helvetica",         7,  TA_RIGHT, color=NOTE_C)
-    tutor_lbl= mk("tl",  "Helvetica-Bold",   6,  color=TEXT_C, align=TA_LEFT)
-    tutor_val= mk("tv",  "Helvetica",         6,  color=NOTE_C, align=TA_LEFT)
-    sign_s   = mk("ss",  "Helvetica",         6,  TA_RIGHT, color=NOTE_C)
-    date_s   = mk("ds",  "Helvetica",         6,  TA_LEFT,  color=NOTE_C)
+    hd_inst = mk("hdi", "Helvetica-Bold",  9, color=TEXT_C)
+    hd_addr = mk("hda", "Helvetica",        6, color=NOTE_C)
+    hd_dept = mk("hdd", "Helvetica-Bold",  11, color=TEXT_C)
+    hd_tt   = mk("hdt", "Helvetica-Bold",  13, color=TEXT_C)
+    hd_meta = mk("hdm", "Helvetica",         7, color=NOTE_C)
+    th_s    = mk("th",  "Helvetica-Bold",   7, color=GOLD)
+    day_s   = mk("dy",  "Helvetica-Bold",   7, color=TEXT_C)
+    per_s   = mk("pr",  "Helvetica",         6, color=NOTE_C)
+    subj_s  = mk("sj",  "Helvetica-Bold",   7, color=TEXT_C)
+    note_s  = mk("nt",  "Helvetica",         6, TA_LEFT, color=NOTE_C)
 
     gen_date = timetable["created_at"][:10]
-    usable_w = PAGE[0] - LM - RM
 
-    elements = []
-    elements.append(Paragraph("Govt. Polytechnic Education Society, Manesar", hd_inst))
-    elements.append(Paragraph("(On NH-8, near NSG Camp, Manesar, Gurugram)", hd_addr))
-    elements.append(Paragraph("(Ph - 0124-2337243, Website: www.gpmanesar.ac.in)", hd_addr))
-    elements.append(Spacer(1, 1.5 * mm))
-    elements.append(Paragraph(timetable["department"] or "Department", hd_dept))
-    elements.append(Spacer(1, 0.5 * mm))
+    elements = [
+        Paragraph("Govt. Polytechnic Education Society, Manesar", hd_inst),
+        Paragraph("(On NH-8, near NSG Camp, Manesar, Gurugram)", hd_addr),
+        Spacer(1, 0.5 * mm),
+        Paragraph(timetable["department"] or "Department", hd_dept),
+        Paragraph("Time Table", hd_tt),
+        Paragraph("{} — {}  —  w.e.f {}".format(
+            timetable["name"], timetable["semester"], gen_date), hd_meta),
+        Spacer(1, 2 * mm),
+    ]
 
-    hdr_data = [[Paragraph("<b>Time Table</b>", hd_tt),
-                 Paragraph(f"w.e.f  {gen_date}", wef_s)]]
-    hdr_tbl  = Table(hdr_data, colWidths=[usable_w * 0.6, usable_w * 0.4])
-    hdr_tbl.setStyle(TableStyle([
-        ("VALIGN",        (0, 0), (-1, -1), "BOTTOM"),
-        ("TOPPADDING",    (0, 0), (-1, -1), 0),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-    ]))
-    elements.append(hdr_tbl)
-    elements.append(Paragraph(
-        f"{timetable['name']}  |  {timetable['semester']}", hd_meta))
-    elements.append(Spacer(1, 2 * mm))
-
-    DAY_W  = 1.8 * cm
-    PER_W  = 2.5 * cm
-    SUBJ_W = usable_w - DAY_W - PER_W
+    # ── Column widths: DAY | PERIOD | SUBJECT ────────────────────
+    usable_w  = PAGE[0] - LM - RM
+    DAY_W     = 1.9 * cm
+    PER_W     = 2.6 * cm
+    SUBJ_W    = usable_w - DAY_W - PER_W
     col_widths = [DAY_W, PER_W, SUBJ_W]
 
     header_row = [
-        Paragraph("<b>DAY</b>",              th_s),
-        Paragraph("<b>PERIOD</b>",           th_s),
-        Paragraph("<b>SUBJECT (Room) Teacher</b>", th_s),
+        Paragraph("<b>DAY</b>",    th_s),
+        Paragraph("<b>PERIOD</b>", th_s),
+        Paragraph("<b>SUBJECT (Teacher)</b>", th_s),
     ]
 
     table_rows = [header_row]
     span_cmds  = []
-    row_idx    = 1
+    row_idx    = 1  # row 0 = header
 
     for day in days:
         day_row_start = row_idx
+        # Track which hour indices are already consumed by a multi-hour span
         eaten = set()
 
         for hi, hour in enumerate(ALL_HOURS):
             if hi in eaten:
-                table_rows.append([
-                    Paragraph(day, day_s),
-                    Paragraph(hour, per_s),
-                    Paragraph("", mk("sp", "Helvetica", 5)),
-                ])
+                # Append a placeholder row that will be spanned over
+                table_rows.append([Paragraph(day, day_s),
+                                    Paragraph(hour, per_s),
+                                    Paragraph("", mk("sp","Helvetica",6))])
                 row_idx += 1
                 continue
 
             s = lookup[day].get(hour)
 
+            # Detect consecutive identical slots (multi-hour lab/session)
             span = 1
             if s:
                 while hi + span < len(ALL_HOURS):
-                    nxt  = ALL_HOURS[hi + span]
+                    nxt_hour = ALL_HOURS[hi + span]
+                    # Must be consecutive (no gap)
                     cur_end   = int(ALL_HOURS[hi + span - 1].split("-")[1].split(":")[0])
-                    nxt_start = int(nxt.split(":")[0])
+                    nxt_start = int(nxt_hour.split(":")[0])
                     if cur_end != nxt_start:
                         break
-                    ns = lookup[day].get(nxt)
+                    ns = lookup[day].get(nxt_hour)
                     if (ns and ns["subject_name"] == s["subject_name"]
                             and ns["teacher_name"] == s["teacher_name"]):
                         span += 1
                     else:
                         break
+
             if span > 1:
                 for k in range(1, span):
                     eaten.add(hi + k)
 
-            h_start   = int(hour.split(":")[0])
-            h_end     = h_start + span
+            # Build the period label
+            h_start = int(hour.split(":")[0])
+            h_end   = h_start + span
             per_label = f"{h_start}:00-{h_end}:00"
 
             if s:
-                room  = s.get("room_no", "").strip()
-                parts = s["teacher_name"].replace("&", "/").split("/")
-                abbr  = "/".join(abbr_map.get(p.strip(), p.strip()) for p in parts)
-                room_part = f" ({room})" if room else ""
-                cell_text = f"{s['subject_name']}{room_part}  {abbr}"
-                subj_cell = Paragraph(cell_text, cell_s)
+                subj_cell = Paragraph(
+                    f"<b>{s['subject_name']}</b>  "
+                    f"<font size='5' color='#2a5080'>{s['teacher_name']}</font>",
+                    subj_s)
             else:
                 per_label = f"{h_start}:00-{h_start+1}:00"
-                subj_cell = Paragraph("", mk("em", "Helvetica", 5, color=EMPTY_C))
+                subj_cell = Paragraph("-", mk("em", "Helvetica", 6, color=EMPTY_C))
 
             table_rows.append([
                 Paragraph(day, day_s),
@@ -778,78 +709,70 @@ def export_pdf(timetable_id):
                 subj_cell,
             ])
 
+            # SPAN the subject cell vertically if multi-hour
             if span > 1:
                 span_cmds.append(("SPAN", (1, row_idx), (1, row_idx + span - 1)))
                 span_cmds.append(("SPAN", (2, row_idx), (2, row_idx + span - 1)))
 
             row_idx += 1
 
+        # Span the DAY cell across all rows for this day
         day_row_end = row_idx - 1
         if day_row_end > day_row_start:
             span_cmds.append(("SPAN", (0, day_row_start), (0, day_row_end)))
 
-    # Tutor row
-    tutor_str = teachers[0]["teacher_name"] if teachers else ""
-    table_rows.append([
-        Paragraph("<b>TUTOR</b>", tutor_lbl),
-        Paragraph("", per_s),
-        Paragraph(tutor_str, tutor_val),
-    ])
-    span_cmds.append(("SPAN", (1, row_idx), (2, row_idx)))
-    span_cmds.append(("BACKGROUND", (0, row_idx), (-1, row_idx), TUTOR_BG))
-
     n_rows = len(table_rows)
-    ROW_H  = 0.44 * cm
+    ROW_H  = 0.50 * cm   # compact — matches photo row height
 
     style = TableStyle([
+        # Header
         ("BACKGROUND",    (0, 0), (-1, 0),  HEAD_BG),
         ("FONTNAME",      (0, 0), (-1, 0),  "Helvetica-Bold"),
         ("FONTSIZE",      (0, 0), (-1, 0),  7),
         ("ALIGN",         (0, 0), (-1, 0),  "CENTER"),
         ("VALIGN",        (0, 0), (-1, 0),  "MIDDLE"),
+        # Body
         ("FONTSIZE",      (0, 1), (-1, -1), 6),
         ("VALIGN",        (0, 1), (-1, -1), "MIDDLE"),
         ("ALIGN",         (0, 1), (-1, -1), "CENTER"),
+        # DAY col
         ("BACKGROUND",    (0, 1), (0, -1),  DAY_BG),
         ("FONTNAME",      (0, 1), (0, -1),  "Helvetica-Bold"),
         ("FONTSIZE",      (0, 1), (0, -1),  7),
         ("TEXTCOLOR",     (0, 1), (0, -1),  TEXT_C),
+        # PERIOD col
         ("BACKGROUND",    (1, 1), (1, -1),  PER_BG),
         ("FONTSIZE",      (1, 1), (1, -1),  6),
+        # SUBJECT col alternating
         ("ROWBACKGROUNDS",(2, 1), (2, -1),  [WHITE, ALT_BG]),
-        ("ALIGN",         (2, 1), (2, -1),  "LEFT"),
+        # Grid
         ("GRID",          (0, 0), (-1, -1), 0.3, GRID),
-        ("LEFTPADDING",   (0, 0), (-1, -1), 3),
-        ("RIGHTPADDING",  (0, 0), (-1, -1), 3),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 2),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 2),
         ("TOPPADDING",    (0, 0), (-1, -1), 1),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
     ] + span_cmds)
 
     grid = Table(table_rows, colWidths=col_widths, repeatRows=1,
-                 rowHeights=[0.50 * cm] + [ROW_H] * (n_rows - 1))
+                 rowHeights=[0.55 * cm] + [ROW_H] * (n_rows - 1))
     grid.setStyle(style)
     elements.append(grid)
 
     elements.append(Spacer(1, 2 * mm))
     elements.append(Paragraph(
         "NOTE: NO CHANGE WITHOUT THE PERMISSION OF THE UNDERSIGNED.", note_s))
-    elements.append(Spacer(1, 1 * mm))
 
-    if individual_teachers:
-        abbr_lines = [f"<b>{abbr_map[n]}</b> {n}" for n in individual_teachers]
-        elements.append(Paragraph("  |  ".join(abbr_lines), abbr_s))
-
-    elements.append(Spacer(1, 4 * mm))
-
-    sig_data = [[Paragraph(f"Dt. {gen_date}", date_s),
-                 Paragraph("PRINCIPAL<br/>GPES MANESAR", sign_s)]]
-    sig_tbl  = Table(sig_data, colWidths=[usable_w * 0.5, usable_w * 0.5])
-    sig_tbl.setStyle(TableStyle([
-        ("TOPPADDING",    (0, 0), (-1, -1), 0),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-        ("VALIGN",        (0, 0), (-1, -1), "TOP"),
-    ]))
-    elements.append(sig_tbl)
+    teachers = timetable.get("teachers", [])
+    if teachers:
+        individuals = sorted({
+            p.strip()
+            for t in teachers
+            for p in t["teacher_name"].replace("&", "/").split("/")
+            if p.strip()
+        })
+        if individuals:
+            elements.append(Paragraph(
+                "Teachers: " + "   ".join(individuals), note_s))
 
     doc.build(elements)
     buf.seek(0)
