@@ -42,7 +42,6 @@ def init_db():
             teacher_name    TEXT    NOT NULL,
             branch_name     TEXT    NOT NULL,
             subject_name    TEXT    NOT NULL,
-            room_no         TEXT    NOT NULL DEFAULT '',
             no_of_lectures  INTEGER NOT NULL DEFAULT 0,
             no_of_labs      INTEGER NOT NULL DEFAULT 0,
             lecture_length  REAL    NOT NULL DEFAULT 1.0,
@@ -60,7 +59,6 @@ def init_db():
             teacher_name    TEXT    NOT NULL,
             branch_name     TEXT    NOT NULL,
             subject_name    TEXT    NOT NULL,
-            room_no         TEXT    NOT NULL DEFAULT '',
             type            TEXT    NOT NULL CHECK(type IN ('lecture', 'lab')),
             FOREIGN KEY (timetable_id) REFERENCES timetables(id) ON DELETE CASCADE
         )
@@ -84,16 +82,6 @@ def init_db():
         "CREATE INDEX IF NOT EXISTS idx_timetables_sem     ON timetables(semester)",
     ]:
         c.execute(stmt)
-
-    # Migrations for existing databases
-    for migration in [
-        "ALTER TABLE teachers ADD COLUMN IF NOT EXISTS room_no TEXT NOT NULL DEFAULT ''",
-        "ALTER TABLE slots    ADD COLUMN IF NOT EXISTS room_no TEXT NOT NULL DEFAULT ''",
-    ]:
-        try:
-            c.execute(migration)
-        except Exception:
-            pass
 
     conn.commit()
     conn.close()
@@ -229,20 +217,19 @@ def duplicate_timetable(timetable_id: int, new_name: str):
     for t in original["teachers"]:
         c.execute(
             """INSERT INTO teachers
-               (timetable_id, teacher_name, branch_name, subject_name, room_no,
+               (timetable_id, teacher_name, branch_name, subject_name,
                 no_of_lectures, no_of_labs, lecture_length, lab_length)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
             (new_id, t["teacher_name"], t["branch_name"], t["subject_name"],
-             t.get("room_no", ""),
              t["no_of_lectures"], t["no_of_labs"], t["lecture_length"], t["lab_length"])
         )
     for s in original["slots"]:
         c.execute(
             """INSERT INTO slots
-               (timetable_id, day, time_slot, teacher_name, branch_name, subject_name, room_no, type)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
+               (timetable_id, day, time_slot, teacher_name, branch_name, subject_name, type)
+               VALUES (%s,%s,%s,%s,%s,%s,%s)""",
             (new_id, s["day"], s["time_slot"], s["teacher_name"],
-             s["branch_name"], s["subject_name"], s.get("room_no", ""), s["type"])
+             s["branch_name"], s["subject_name"], s["type"])
         )
 
     conn.commit()
@@ -256,38 +243,13 @@ def save_teachers(timetable_id: int, teachers: list) -> None:
     for t in teachers:
         c.execute(
             """INSERT INTO teachers
-               (timetable_id, teacher_name, branch_name, subject_name, room_no,
+               (timetable_id, teacher_name, branch_name, subject_name,
                 no_of_lectures, no_of_labs, lecture_length, lab_length)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
             (timetable_id, t["teacher_name"], t["branch_name"], t["subject_name"],
-             t.get("room_no", ""),
              t.get("no_of_lectures", 0), t.get("no_of_labs", 0),
              t.get("lecture_length", 1.0), t.get("lab_length", 2.0))
         )
-    conn.commit()
-    conn.close()
-
-
-def update_teachers(timetable_id: int, teachers: list) -> None:
-    """Delete all existing teachers for a timetable and insert the new list."""
-    conn = get_connection()
-    c = _cur(conn)
-    c.execute("DELETE FROM teachers WHERE timetable_id = %s", (timetable_id,))
-    for t in teachers:
-        c.execute(
-            """INSERT INTO teachers
-               (timetable_id, teacher_name, branch_name, subject_name, room_no,
-                no_of_lectures, no_of_labs, lecture_length, lab_length)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-            (timetable_id, t["teacher_name"], t["branch_name"], t["subject_name"],
-             t.get("room_no", ""),
-             t.get("no_of_lectures", 0), t.get("no_of_labs", 0),
-             t.get("lecture_length", 1.0), t.get("lab_length", 2.0))
-        )
-    c.execute(
-        f"UPDATE timetables SET updated_at = {_NOW} WHERE id = %s",
-        (timetable_id,)
-    )
     conn.commit()
     conn.close()
 
@@ -298,10 +260,10 @@ def save_slots(timetable_id: int, slots: list) -> None:
     for s in slots:
         c.execute(
             """INSERT INTO slots
-               (timetable_id, day, time_slot, teacher_name, branch_name, subject_name, room_no, type)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
+               (timetable_id, day, time_slot, teacher_name, branch_name, subject_name, type)
+               VALUES (%s,%s,%s,%s,%s,%s,%s)""",
             (timetable_id, s["day"], s["time_slot"], s["teacher_name"],
-             s["branch_name"], s["subject_name"], s.get("room_no", ""), s["type"])
+             s["branch_name"], s["subject_name"], s["type"])
         )
     c.execute(
         f"UPDATE timetables SET updated_at = {_NOW} WHERE id = %s",
@@ -332,17 +294,21 @@ def get_all_slots(exclude_timetable_id=None) -> list:
 
 
 def check_conflicts(new_slots: list, exclude_timetable_id=None) -> list:
+    """Check for teacher double-booking across timetables.
+
+    Branch/subject name conflicts are intentionally NOT checked here because
+    the same subject (e.g. SCA) can legitimately be taught to different student
+    groups by different teachers at the same time.  Only teacher availability
+    is a hard constraint.
+    """
     existing_slots = get_all_slots(exclude_timetable_id=exclude_timetable_id)
 
     teacher_lookup = {}
-    branch_lookup  = {}
 
     for s in existing_slots:
         for teacher in [n.strip() for n in s["teacher_name"].replace('&', '/').split('/') if n.strip()]:
             tk = (teacher.lower(), s["day"], s["time_slot"])
             teacher_lookup[tk] = (s["timetable_id"], s["subject_name"])
-        bk = (s["branch_name"].strip().lower(), s["day"], s["time_slot"])
-        branch_lookup[bk] = (s["timetable_id"], s["subject_name"])
 
     conflicts = []
     for ns in new_slots:
@@ -354,13 +320,6 @@ def check_conflicts(new_slots: list, exclude_timetable_id=None) -> list:
                     f"Teacher conflict: '{teacher}' already scheduled "
                     f"on {ns['day']} at {ns['time_slot']} (Timetable #{tid} - {subj})"
                 )
-        bk = (ns["branch_name"].strip().lower(), ns["day"], ns["time_slot"])
-        if bk in branch_lookup:
-            tid, subj = branch_lookup[bk]
-            conflicts.append(
-                f"Branch conflict: '{ns['branch_name']}' already has a class "
-                f"on {ns['day']} at {ns['time_slot']} (Timetable #{tid} - {subj})"
-            )
 
     return list(dict.fromkeys(conflicts))
 
